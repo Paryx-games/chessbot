@@ -44,7 +44,9 @@ fn valid_setting(key: &str, value: &str) -> bool {
     match key {
         "theme" => matches!(value, "green" | "brown" | "blue" | "purple"),
         "appearance" => matches!(value, "system" | "light" | "dark"),
-        "reducedMotion" | "coordinates" | "suggestions" | "saveEnabled" => boolean(value),
+        "reducedMotion" | "coordinates" | "suggestions" | "soundEffects" | "saveEnabled" => {
+            boolean(value)
+        }
         _ => {
             key.strip_prefix("save_")
                 .is_some_and(|group| GROUPS.contains(&group))

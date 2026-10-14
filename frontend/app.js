@@ -16,7 +16,7 @@ let grid = Array(64).fill(''), flip = false, tool = null, drag = null, ghost = n
 let turn = 'w', ep = '-', cr = new Set('KQkq'), sfSide = null, sug = null;
 let activeView = 'analyzer', legalRules = false, allowCastling = true, movePending = false;
 let playMode = 'normal', elo = 1600, fullStrength = true, settingsOpen = false;
-let preferences = { theme: 'green', appearance: 'system', reducedMotion: false, coordinates: true, suggestions: true };
+let preferences = { theme: 'green', appearance: 'system', reducedMotion: false, coordinates: true, suggestions: true, soundEffects: true };
 let saveEnabled = true;
 const saveChoices = Object.fromEntries(['depth', 'mode', 'strength', 'side', 'rules', 'automation', 'position', 'orientation', 'workspace'].map(key => [key, true]));
 let configReady = false, saveTimer = null, saveChain = Promise.resolve(), closingWindow = false;
@@ -173,9 +173,11 @@ function applyPreferences() {
   $('#theme').value = preferences.theme; $('#appearance').value = preferences.appearance;
   $('#reduced-motion').checked = preferences.reducedMotion;
   $('#coordinates').checked = preferences.coordinates; $('#suggestions').checked = preferences.suggestions;
+  $('#sound-effects').checked = preferences.soundEffects;
+  if (!preferences.soundEffects) currentSound?.pause();
   drawArrow();
 }
-for (const [id, key] of Object.entries({theme:'theme', appearance:'appearance', 'reduced-motion':'reducedMotion', coordinates:'coordinates', suggestions:'suggestions'})) {
+for (const [id, key] of Object.entries({theme:'theme', appearance:'appearance', 'reduced-motion':'reducedMotion', coordinates:'coordinates', suggestions:'suggestions', 'sound-effects':'soundEffects'})) {
   $('#' + id).onchange = event => {
     preferences[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     applyPreferences();
@@ -215,7 +217,23 @@ let ready = false, crashed = false, token = 0, timer = 0, depth = 12;
 let depthPreset = '12', customDepth = 24;
 let cancellation = Promise.resolve();
 
+const moveSounds = Object.fromEntries(['move', 'capture', 'castle', 'check'].map(name => {
+  const audio = new Audio(`sounds/${name}.mp3`); audio.preload = 'auto';
+  return [name, audio];
+}));
+let currentSound = null, pendingMoveSound = null;
+function playMoveSound(result, position) {
+  if (!pendingMoveSound || pendingMoveSound.fen !== position) return;
+  const type = result.checked_square != null ? 'check' : pendingMoveSound.type;
+  pendingMoveSound = null;
+  if (!preferences.soundEffects) return;
+  currentSound?.pause();
+  currentSound = moveSounds[type]; currentSound.currentTime = 0;
+  currentSound.play().catch(() => {});
+}
+
 function changed(resetClock = false) {
+  pendingMoveSound = null;
   moveNotice();
   crashed = false; plies = 0; history = []; gameState = null;
   if (resetClock) { halfmoves = 0; fullmoves = 1; }
@@ -377,6 +395,7 @@ async function schedule() {
     if (my !== token) return;
     gameState = result; stateFen = currentFen;
     paintGameStatus(result);
+    playMoveSound(result, currentFen);
     if (result.terminal || result.kind === 'invalid') return status(result.message);
   } catch (error) {
     if (my !== token) return;
@@ -447,11 +466,12 @@ function show(best, info, live) {
 async function playSug(my, mv) {
   if (my !== token || !sug || settingsOpen) return;
   if (plies >= 200) { sug = null; drawArrow(); return status('Stopped after 200 auto moves - change the position to continue'); }
-  const position = toFen();
+  const position = toFen(), sound = moveSoundType(grid, idx(mv.slice(0, 2)), idx(mv.slice(2, 4)), ep);
   try {
     const next = await invoke('make_move', { fen: position, uci: mv, castling: allowCastling });
     if (my !== token || position !== toFen()) return;
     history.push(position); load(next);
+    pendingMoveSound = { fen: toFen(), type: sound };
   } catch (error) { if (my === token) moveNotice(String(error)); return; }
   plies++;
   render(); syncTool();
@@ -545,9 +565,9 @@ function moveNotice(message = '') {
 async function manualMove(from, to) {
   if (movePending) return;
   moveNotice();
-  const ch = grid[from];
+  const ch = grid[from], sound = moveSoundType(grid, from, to, ep);
   const castleAttempt = ch.toLowerCase() === 'k' && (from >> 3) === (to >> 3) && Math.abs((from & 7) - (to & 7)) === 2;
-  if (!legalRules && !castleAttempt) { applyMove(from, to); render(); syncTool(); schedule(); return; }
+  if (!legalRules && !castleAttempt) { applyMove(from, to); pendingMoveSound = { fen: toFen(), type: sound }; render(); syncTool(); schedule(); return; }
   const position = toFen(), revision = ++token;
   clearTimeout(timer); invoke('engine_cancel').catch(() => {}); movePending = true;
   const notation = index => 'abcdefgh'[index & 7] + (8 - (index >> 3));
@@ -555,7 +575,7 @@ async function manualMove(from, to) {
   try {
     const next = await invoke('make_move', { fen: position, uci: notation(from) + notation(to) + promotion, castling: allowCastling });
     if (revision !== token || position !== toFen()) return;
-    history.push(position); load(next); render(); syncTool(); schedule();
+    history.push(position); load(next); pendingMoveSound = { fen: toFen(), type: sound }; render(); syncTool(); schedule();
   } catch (error) {
     if (revision === token) { moveNotice(String(error)); render(); schedule(); }
   } finally { movePending = false; }
@@ -614,6 +634,7 @@ function switchWorkspace(nextView) {
   } else {
     restoreWorkspace(defaultWorkspace(nextView));
   }
+  pendingMoveSound = null;
   tool = null; crashed = false; sug = null; gameState = null; moveNotice();
   syncDepth(); syncWorkspace(); render(); syncTool(); schedule();
 }

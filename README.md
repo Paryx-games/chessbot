@@ -135,6 +135,7 @@ No Rust or Node.js installation is required to run either download. I use those 
 - **Search Depth** - Choose 6, 8, 12, 16, or 24, or use a Custom slider from 1 to 48
 - **Automatic Moves** - Let Stockfish apply its suggestions for one side or play both sides
 - **Game Status** - Show check, checkmate, stalemate, and supported draw conditions, with a red square around a checked king
+- **Move Sounds** - Distinct cues for moves, captures, castling, and check, with a saved sound checkbox
 - **Board Appearance** - Flip the board and choose from four colour themes
 - **Remembered Controls** - Save display preferences in `settings.ini` and selected workspace controls in `saved.ini`; checkboxes in Settings choose what gets remembered
 

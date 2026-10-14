@@ -19,11 +19,13 @@ function checkFrontend(directory = path.resolve(__dirname, '../frontend')) {
     }
     if (!fs.statSync(filename).isFile()) throw new Error(`Missing frontend resource: ${resource}`);
   }
+  for (const resource of resources.filter(name => name.endsWith('.js'))) {
+    execFileSync(process.execPath, ['--check', path.join(root, resource)], { stdio: 'pipe' });
+  }
   const js = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   for (const match of js.matchAll(/\$\(['"]#([a-z][\w-]*)['"]\)/gi)) {
     if (!ids.includes(match[1])) throw new Error(`Missing frontend element: ${match[1]}`);
   }
-  execFileSync(process.execPath, ['--check', path.join(root, 'app.js')], { stdio: 'pipe' });
 }
 
 if (require.main === module) {
