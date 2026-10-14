@@ -7,6 +7,7 @@ pub struct SearchOptions<'a> {
     pub depth: u8,
     pub mode: PlayMode,
     pub history: &'a [String],
+    pub elo: Option<u16>,
 }
 use std::{
     io::{BufRead, BufReader, Write},
@@ -127,6 +128,7 @@ impl Engine {
                 depth,
                 mode: PlayMode::Normal,
                 history: &[],
+                elo: None,
             },
             generation,
             latest,
@@ -146,15 +148,28 @@ impl Engine {
             depth,
             mode,
             history,
+            elo,
         } = options;
         validate_fen(fen)?;
         if !(1..=48).contains(&depth) {
             return Err("Depth must be between 1 and 48".into());
         }
+        if elo.is_some_and(|elo| !(1320..=3190).contains(&elo)) {
+            return Err("Elo must be between 1320 and 3190".into());
+        }
         if latest.load(Ordering::SeqCst) != generation {
             return Ok(());
         }
-        let variations = if mode == PlayMode::Normal {
+        self.send("setoption name Skill Level value 20")?;
+        self.send(&format!(
+            "setoption name UCI_LimitStrength value {}",
+            elo.is_some()
+        ))?;
+        if let Some(elo) = elo {
+            self.send(&format!("setoption name UCI_Elo value {elo}"))?;
+        }
+        let styled = mode != PlayMode::Normal && elo.is_none();
+        let variations = if !styled {
             1
         } else {
             crate::rules::legal_moves(fen, true)?.len().clamp(1, 256)
@@ -180,7 +195,7 @@ impl Engine {
             match self.output.recv_timeout(Duration::from_millis(30)) {
                 Ok(line) => {
                     if !stopped && latest.load(Ordering::SeqCst) == generation {
-                        if line.starts_with("bestmove ") && mode != PlayMode::Normal {
+                        if line.starts_with("bestmove ") && styled {
                             let fallback = line.split_whitespace().nth(1).unwrap_or("(none)");
                             let (selected, reason) =
                                 crate::modes::choose(mode, fen, history, &complete, fallback);
@@ -208,6 +223,9 @@ impl Engine {
                                         complete = frame.values().cloned().collect();
                                     }
                                 }
+                            }
+                            if line.starts_with("bestmove ") && elo.is_some() {
+                                emit("modeinfo Playing at limited Elo; Stockfish’s strength selection takes priority.");
                             }
                             emit(&line);
                         }
@@ -244,6 +262,7 @@ mod tests {
                     depth: 5,
                     mode: PlayMode::Playful,
                     history: &[],
+                    elo: None,
                 },
                 1,
                 &latest,
@@ -277,6 +296,7 @@ mod tests {
                     depth: 5,
                     mode: PlayMode::QueenCollector,
                     history: &[],
+                    elo: None,
                 },
                 1,
                 &latest,
@@ -305,6 +325,7 @@ mod tests {
                         depth: 48,
                         mode: PlayMode::QueenCollector,
                         history: &[],
+                        elo: None,
                     },
                     1,
                     &latest,
@@ -321,6 +342,81 @@ mod tests {
             })
             .unwrap();
         crate::rules::make_move(START, &best, true).unwrap();
+    }
+    #[test]
+    fn elo_limits_validate_cancel_and_reset_between_searches() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("binaries/stockfish-x86_64-pc-windows-msvc.exe");
+        let mut engine = Engine::start(&path).unwrap();
+        let latest = AtomicU64::new(1);
+        for elo in [Some(1319), Some(3191)] {
+            assert!(engine
+                .analyse_options(
+                    SearchOptions {
+                        fen: START,
+                        depth: 4,
+                        mode: PlayMode::Normal,
+                        history: &[],
+                        elo
+                    },
+                    1,
+                    &latest,
+                    |_| {}
+                )
+                .is_err());
+        }
+        for elo in [Some(1320), Some(3190), None] {
+            let mut best = String::new();
+            let mut limited = false;
+            engine
+                .analyse_options(
+                    SearchOptions {
+                        fen: START,
+                        depth: 4,
+                        mode: PlayMode::Playful,
+                        history: &[],
+                        elo,
+                    },
+                    1,
+                    &latest,
+                    |line| {
+                        if let Some(mv) = line.strip_prefix("bestmove ") {
+                            best = mv.split_whitespace().next().unwrap().into();
+                        }
+                        limited |= line.contains("Playing at limited Elo");
+                    },
+                )
+                .unwrap();
+            assert_eq!(limited, elo.is_some());
+            crate::rules::make_move(START, &best, true).unwrap();
+        }
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                std::thread::sleep(Duration::from_millis(80));
+                latest.store(2, Ordering::SeqCst);
+            });
+            engine
+                .analyse_options(
+                    SearchOptions {
+                        fen: START,
+                        depth: 48,
+                        mode: PlayMode::Normal,
+                        history: &[],
+                        elo: Some(1600),
+                    },
+                    1,
+                    &latest,
+                    |_| {},
+                )
+                .unwrap();
+        });
+        let mut recovered = false;
+        engine
+            .analyse(START, 4, 2, &latest, |line| {
+                recovered |= line.starts_with("bestmove ");
+            })
+            .unwrap();
+        assert!(recovered);
     }
     #[test]
     fn rejects_unsafe_positions() {

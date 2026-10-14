@@ -87,6 +87,7 @@ fn make_move(fen: String, uci: String, castling: bool) -> Result<String, String>
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 async fn engine_analyse(
     fen: String,
     depth: u8,
@@ -94,6 +95,7 @@ async fn engine_analyse(
     castling: Option<bool>,
     mode: Option<modes::PlayMode>,
     history: Option<Vec<String>>,
+    elo: Option<u16>,
     state: State<'_, Backend>,
 ) -> Result<(), String> {
     engine::validate_fen(&fen)?;
@@ -121,6 +123,7 @@ async fn engine_analyse(
                 depth,
                 mode: mode.unwrap_or_default(),
                 history: &history,
+                elo,
             },
             generation,
             &state.latest,
