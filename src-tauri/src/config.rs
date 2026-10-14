@@ -46,7 +46,7 @@ fn valid_setting(key: &str, value: &str) -> bool {
         "lines" => number(value, 1, 5),
         "theme" => matches!(value, "green" | "brown" | "blue" | "purple"),
         "appearance" => matches!(value, "system" | "light" | "dark"),
-        "reducedMotion" | "coordinates" | "suggestions" | "soundEffects" | "saveEnabled" => {
+        "reducedMotion" | "coordinates" | "suggestions" | "muteSounds" | "saveEnabled" => {
             boolean(value)
         }
         _ => {
@@ -94,6 +94,18 @@ fn valid_saved(key: &str, value: &str) -> bool {
     }
 }
 fn clean(config: &mut Config) {
+    if !config.settings.contains_key("muteSounds") {
+        if let Some(old) = config
+            .settings
+            .get("soundEffects")
+            .filter(|value| boolean(value))
+        {
+            config
+                .settings
+                .insert("muteSounds".into(), (old == "false").to_string());
+        }
+    }
+    config.settings.remove("soundEffects");
     config
         .settings
         .retain(|key, value| valid_setting(key, value));
@@ -267,6 +279,31 @@ mod tests {
         clean(&mut config);
         assert!(!config.saved["analyzer"].contains_key("lastMove"));
         assert_eq!(config.saved["analyzer"]["elo"], "1600");
+    }
+
+    #[test]
+    fn mute_preference_migrates_old_sound_choices_and_preserves_explicit_values() {
+        for (old, expected) in [("true", "false"), ("false", "true")] {
+            let mut config = Config {
+                settings: BTreeMap::from([("soundEffects".into(), old.into())]),
+                ..Config::default()
+            };
+            clean(&mut config);
+            assert_eq!(config.settings["muteSounds"], expected);
+            assert!(!config.settings.contains_key("soundEffects"));
+        }
+        let mut config = Config {
+            settings: BTreeMap::from([
+                ("soundEffects".into(), "false".into()),
+                ("muteSounds".into(), "false".into()),
+            ]),
+            ..Config::default()
+        };
+        clean(&mut config);
+        assert_eq!(config.settings["muteSounds"], "false");
+        let mut fresh = Config::default();
+        clean(&mut fresh);
+        assert!(!fresh.settings.contains_key("muteSounds"));
     }
 
     #[test]

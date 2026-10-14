@@ -138,7 +138,7 @@ No Rust or Node.js installation is required to run either download. I use those 
 - **Automatic Moves** - Let Stockfish apply its suggestions for one side or play both sides
 - **Last Move** - Yellow squares mark where the last piece moved from and to, including engine moves
 - **Game Status** - Show check, checkmate, stalemate, and supported draw conditions, with a red square around a checked king
-- **Move Sounds** - Distinct cues for self/opponent moves, captures, castling, promotion, checking moves, checkmate, and illegal moves, with a saved sound checkbox
+- **Move Sounds** - Distinct cues for self/opponent moves, captures, castling, promotion, checking moves, checkmate, and illegal moves, with a saved Mute Sounds toggle under Settings > Audio (off by default)
 - **Board Appearance** - Flip the board and choose from four colour themes
 - **Remembered Controls** - Save display preferences in `settings.ini` and selected workspace controls in `saved.ini`; checkboxes in Settings choose what gets remembered
 

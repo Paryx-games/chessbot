@@ -16,7 +16,7 @@ let grid = Array(64).fill(''), flip = false, tool = null, drag = null, ghost = n
 let turn = 'w', ep = '-', cr = new Set('KQkq'), sfSide = null, sug = null;
 let activeView = 'analyzer', legalRules = false, allowCastling = true, movePending = false;
 let elo = 1600, fullStrength = true, settingsOpen = false;
-let preferences = { theme: 'green', appearance: 'system', reducedMotion: false, coordinates: true, suggestions: true, soundEffects: true, threads: 2, hash: 64, lines: 1 };
+let preferences = { theme: 'green', appearance: 'system', reducedMotion: false, coordinates: true, suggestions: true, muteSounds: false, threads: 2, hash: 64, lines: 1 };
 let maxThreads = 1;
 let saveEnabled = true;
 const saveChoices = Object.fromEntries(['depth', 'strength', 'side', 'rules', 'automation', 'position', 'orientation', 'workspace'].map(key => [key, true]));
@@ -181,11 +181,12 @@ function applyPreferences() {
   $('#theme').value = preferences.theme; $('#appearance').value = preferences.appearance;
   $('#reduced-motion').checked = preferences.reducedMotion;
   $('#coordinates').checked = preferences.coordinates; $('#suggestions').checked = preferences.suggestions;
-  $('#sound-effects').checked = preferences.soundEffects;
-  if (!preferences.soundEffects) currentSound?.pause();
+  $('#mute-sounds').checked = preferences.muteSounds;
+  for (const audio of Object.values(moveSounds)) audio.muted = preferences.muteSounds;
+  if (preferences.muteSounds) currentSound?.pause();
   drawArrow();
 }
-for (const [id, key] of Object.entries({theme:'theme', appearance:'appearance', 'reduced-motion':'reducedMotion', coordinates:'coordinates', suggestions:'suggestions', 'sound-effects':'soundEffects'})) {
+for (const [id, key] of Object.entries({theme:'theme', appearance:'appearance', 'reduced-motion':'reducedMotion', coordinates:'coordinates', suggestions:'suggestions', 'mute-sounds':'muteSounds'})) {
   $('#' + id).onchange = event => {
     preferences[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     applyPreferences();
@@ -236,7 +237,7 @@ const moveSounds = Object.fromEntries(SOUND_NAMES.map(name => {
 }));
 let currentSound = null, pendingMoveSound = null;
 function playCue(type) {
-  if (!preferences.soundEffects || !moveSounds[type]) return;
+  if (preferences.muteSounds || !moveSounds[type]) return;
   currentSound?.pause();
   currentSound = moveSounds[type]; currentSound.currentTime = 0;
   currentSound.play().catch(() => {});
@@ -777,6 +778,7 @@ async function initialize() {
     if (!config.settings_exists) {
       try {
         const old = JSON.parse(localStorage.getItem('chessbot.preferences'));
+        if (typeof old?.soundEffects === 'boolean' && typeof old.muteSounds !== 'boolean') preferences.muteSounds = !old.soundEffects;
         for (const key of Object.keys(preferences)) if (typeof old?.[key] === typeof preferences[key]) preferences[key] = old[key];
       } catch { /* I use defaults when there are no earlier preferences. */ }
     }
