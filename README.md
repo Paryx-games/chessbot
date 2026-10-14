@@ -267,7 +267,7 @@ cargo tauri build --ci --bundles nsis -- --locked
 cargo tauri build --debug --no-bundle
 ```
 
-I use `assets/branding/icon.png` as the icon source and `src-tauri/icons/icon.ico` as the Windows app icon. The matching social image is `assets/branding/social-preview.png`; [branding instructions](assets/branding/README.md) explain how I regenerate icons and set the GitHub preview.
+I use `assets/branding/icon.png` as the icon source and `src-tauri/icons/icon.ico` as the Windows app icon. The matching social image is `assets/branding/social-preview.png`; my [branding instructions](assets/branding/README.md) explain how I regenerate icons.
 
 Stockfish is pinned to `sf_19`. My downloader verifies the binary archive's SHA-256 digest and prepares the matching source and license resources. Keep those files with the app when packaging a portable build.
 

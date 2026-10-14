@@ -6,7 +6,7 @@ I apply fixes to the current source and latest published release. If you're usin
 
 ## Reporting
 
-Use **Security → Report a vulnerability** in this repository when private reporting is enabled. Otherwise, contact me through a private contact method I've listed on GitHub. If you can't find one, open an issue asking me for a private channel without including vulnerability details.
+Please report security vulnerabilities to me privately. Don't post exploit details in public issues or pull requests.
 
 Please include the app version or commit, Windows version, affected component, impact, and steps I can follow to reproduce it. For a position-related issue, include the FEN, search depth, and engine settings. Keep exploit details in the private report. I can't promise a response time.
 

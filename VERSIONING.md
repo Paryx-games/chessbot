@@ -16,4 +16,4 @@ This is the checklist I use before releasing a build:
 6. Push the version tag to run Release and publish after validation. Alternatively, manually run Release for an existing tag; it leaves a draft unless Publish is selected. Versions containing a prerelease suffix, including release candidates, are marked as prereleases.
 7. Release builds use the validated commit SHA, verify checksums, and recheck the remote tag before publishing. Assets include the installer, portable ZIP with sidecar/resources, Stockfish source, commit identity, and SHA256SUMS.txt. GitHub supplies the app's source archives automatically. Do not reuse an existing published release. An existing draft must be handled manually before retrying creation.
 
-I don't reuse published tags. I haven't configured code-signing, so the current builds are unsigned.
+I don't reuse published tags. My current builds are unsigned.
