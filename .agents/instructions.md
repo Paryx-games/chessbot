@@ -58,3 +58,7 @@ I keep engine executables, build output, caches, and local logs out of Git. Pres
 Keep the version in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and the generated lockfile consistent. Preserve exact-commit CI validation, tag checks, release checksums, and Stockfish license/source packaging.
 
 Keep changes focused, follow the existing conventions, and add regression coverage when it verifies meaningful behavior. Update the README and changelog for user-visible changes. Tell me what changed, which checks ran, and anything still unverified. Don't publish, push, upload, or create a release unless I ask.
+
+## Commit all changes once finished using conventional commits
+
+Follow `CONVENTIONAL_COMMITS.md` for this

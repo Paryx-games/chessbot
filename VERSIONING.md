@@ -1,8 +1,8 @@
 # Versioning and releases
 
-I use `MAJOR.MINOR.PATCH`. Before 1.0, I may change behavior or interfaces in minor releases. I keep patch releases to compatible fixes.
+I use `MAJOR.MINOR.PATCH`: major versions for incompatible changes, minor versions for compatible features, and patch versions for compatible fixes.
 
-I keep the app version in `src-tauri/tauri.conf.json` and mirror it in `src-tauri/Cargo.toml`. When changing it, update both and let Cargo refresh `src-tauri/Cargo.lock`; don't edit the lockfile manually. I tag releases with `v` followed by the version, such as `v0.1.0`.
+I keep the app version in `src-tauri/tauri.conf.json` and mirror it in `src-tauri/Cargo.toml`. When changing it, update both and let Cargo refresh `src-tauri/Cargo.lock`; don't edit the lockfile manually. I tag releases with `v` followed by the version, such as `v1.0.0`.
 
 ## Release checklist
 

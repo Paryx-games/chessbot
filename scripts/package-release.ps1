@@ -10,8 +10,8 @@ if (Test-Path -LiteralPath $output) {
 }
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 $releaseRoot = Join-Path $projectRoot 'src-tauri/target/release'
-$installers = @(Get-ChildItem -LiteralPath (Join-Path $releaseRoot 'bundle/nsis') -Filter '*-setup.exe')
-if ($installers.Count -ne 1) { throw 'Expected exactly one NSIS installer.' }
+$installers = @(Get-ChildItem -LiteralPath (Join-Path $releaseRoot 'bundle/nsis') -Filter "*_${version}_x64-setup.exe")
+if ($installers.Count -ne 1) { throw 'Expected exactly one NSIS installer matching the application version.' }
 $prefix = "chessbot-$Tag-windows-x64"
 Copy-Item -LiteralPath $installers[0].FullName -Destination (Join-Path $output "$prefix-setup.exe")
 $portable = Join-Path $output 'portable'
