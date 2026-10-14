@@ -63,7 +63,7 @@ fn group(key: &str) -> Option<&str> {
         "sfSide" => Some("side"),
         "legalRules" | "allowCastling" => Some("rules"),
         "auto" | "both" => Some("automation"),
-        "fen" | "history" | "plies" => Some("position"),
+        "fen" | "history" | "plies" | "lastMove" => Some("position"),
         "flip" => Some("orientation"),
         "activeView" => Some("workspace"),
         _ => None,
@@ -77,6 +77,14 @@ fn valid_saved(key: &str, value: &str) -> bool {
         "sfSide" => matches!(value, "off" | "w" | "b"),
         "activeView" => matches!(value, "analyzer" | "training"),
         "plies" => number(value, 0, 200),
+        "lastMove" => {
+            value == "none"
+                || value.split_once(',').is_some_and(|(from, to)| {
+                    number(from, 0, 63)
+                        && number(to, 0, 63)
+                        && from.parse::<u8>().ok() != to.parse::<u8>().ok()
+                })
+        }
         "fen" => value.len() <= 200 && value.parse::<shakmaty::fen::Fen>().is_ok(),
         "history" => value.len() <= 220_000 && value.starts_with('[') && value.ends_with(']'),
         "fullStrength" | "legalRules" | "allowCastling" | "auto" | "both" | "flip" => {
@@ -241,6 +249,24 @@ mod tests {
         };
         clean(&mut config);
         assert!(config.saved["analyzer"].contains_key("fen"));
+    }
+
+    #[test]
+    fn last_move_highlights_validate_and_follow_position_save_choice() {
+        for value in ["52,36", "4,6", "none"] {
+            assert!(valid_saved("lastMove", value));
+        }
+        for value in ["-1,36", "64,36", "52,52", "1,01", "52,", "52,36,1"] {
+            assert!(!valid_saved("lastMove", value));
+        }
+        let mut config = Config {
+            settings: BTreeMap::from([("save_position".into(), "false".into())]),
+            saved: parse("[analyzer]\nlastMove=52,36\nelo=1600\n"),
+            ..Config::default()
+        };
+        clean(&mut config);
+        assert!(!config.saved["analyzer"].contains_key("lastMove"));
+        assert_eq!(config.saved["analyzer"]["elo"], "1600");
     }
 
     #[test]

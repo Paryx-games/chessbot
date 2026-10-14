@@ -134,6 +134,7 @@ No Rust or Node.js installation is required to run either download. I use those 
 - **Vertical Evaluation Bar** - Read the position's evaluation beside the board, with orientation following the board flip
 - **Search Depth** - Choose 6, 8, 12, 16, or 24, or use a Custom slider from 1 to 48
 - **Automatic Moves** - Let Stockfish apply its suggestions for one side or play both sides
+- **Last Move** - Yellow squares mark where the last piece moved from and to, including engine moves
 - **Game Status** - Show check, checkmate, stalemate, and supported draw conditions, with a red square around a checked king
 - **Move Sounds** - Distinct cues for moves, captures, castling, and check, with a saved sound checkbox
 - **Board Appearance** - Flip the board and choose from four colour themes

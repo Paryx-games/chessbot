@@ -6,6 +6,7 @@ I record changes here and use the versioning described in [VERSIONING.md](VERSIO
 
 ### Added
 
+- Yellow origin and destination squares for the last completed move, kept with each workspace’s saved position.
 - Saved engine preferences for available CPU threads (up to 16), 16–1,024 MiB hash memory, and 1–5 displayed analysis lines in Settings.
 - Move, capture, castling, and check sounds, with a Sound effects checkbox saved in settings.ini.
 - Custom Chessbot title bar with app icon and native minimize, maximize/restore, and close controls.

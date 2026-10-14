@@ -12,7 +12,7 @@ const P = {
   k:'<path d="M22.5 15c-6 0-11 4-11 9.5 0 3 1.5 5 3 6.5L13 34h19l-1.5-3c1.5-1.5 3-3.5 3-6.5 0-5.5-5-9.5-11-9.5z"/><rect x="12" y="29.5" width="21" height="3.5" rx="1.75"/><rect x="21" y="3" width="3" height="12" rx="1"/><rect x="17.5" y="6" width="10" height="3" rx="1"/>'
 };
 const BASE = '<path d="M11.5 40v-2.5c0-1.9 1.4-3.3 3.3-3.3h15.4c1.9 0 3.3 1.4 3.3 3.3V40z"/>';
-let grid = Array(64).fill(''), flip = false, tool = null, drag = null, ghost = null;
+let grid = Array(64).fill(''), flip = false, tool = null, drag = null, ghost = null, lastMove = null;
 let turn = 'w', ep = '-', cr = new Set('KQkq'), sfSide = null, sug = null;
 let activeView = 'analyzer', legalRules = false, allowCastling = true, movePending = false;
 let elo = 1600, fullStrength = true, settingsOpen = false;
@@ -56,7 +56,7 @@ function load(f) {
     }
     if (n !== 8) return false;
   }
-  grid = g;
+  grid = g; lastMove = null;
   turn = parts[1] === 'b' ? 'b' : 'w';
   cr = new Set(parts[2] ? (parts[2] === '-' ? '' : parts[2]) : 'KQkq');
   ep = /^[a-h][36]$/.test(parts[3]) ? parts[3] : '-';
@@ -74,6 +74,7 @@ function render() {
     const s = document.createElement('div');
     s.className = 'sq ' + ((r + c) % 2 ? 'd' : 'l');
     s.dataset.i = i;
+    if (lastMove?.includes(i)) s.classList.add('last-move');
     let h = '';
     if (dc === 0) h += `<b class="r">${8 - r}</b>`;
     if (dr === 7) h += `<b class="f">${'abcdefgh'[c]}</b>`;
@@ -198,14 +199,14 @@ for (const [id, key] of [['engine-threads', 'threads'], ['engine-hash', 'hash'],
 }
 fen.addEventListener('change', async () => {
   if (movePending) { fen.value = toFen(); return; }
-  const before = toFen();
+  const before = toFen(), previousMove = lastMove;
   if (!load(fen.value)) { fen.classList.add('bad'); return; }
   if (legalRules) {
     const revision = ++token; movePending = true;
     clearTimeout(timer); invoke('engine_cancel').catch(() => {});
     try { await invoke('legal_moves', { fen: toFen(), castling: allowCastling }); }
     catch (error) {
-      if (revision === token) { load(before); moveNotice(String(error)); render(); }
+      if (revision === token) { load(before); lastMove = previousMove; moveNotice(String(error)); render(); }
       return;
     } finally { movePending = false; }
     if (revision !== token) return;
@@ -245,6 +246,7 @@ function playMoveSound(result, position) {
 }
 
 function changed(resetClock = false) {
+  lastMove = null;
   pendingMoveSound = null;
   moveNotice();
   crashed = false; plies = 0; history = []; gameState = null;
@@ -275,6 +277,7 @@ function applyMove(a, b) {
   [a, b].forEach(q => (lose[q] || '').split('').forEach(f => cr.delete(f)));
   ep = next;
   turn = white ? 'b' : 'w';
+  lastMove = [a, b];
 }
 
 const inb = (r, c) => r >= 0 && r < 8 && c >= 0 && c < 8;
@@ -505,7 +508,7 @@ async function playSug(my, mv) {
   try {
     const next = await invoke('make_move', { fen: position, uci: mv, castling: allowCastling });
     if (my !== token || position !== toFen()) return;
-    history.push(position); load(next);
+    history.push(position); load(next); lastMove = [idx(mv.slice(0, 2)), idx(mv.slice(2, 4))];
     pendingMoveSound = { fen: toFen(), type: sound };
   } catch (error) { if (my === token) moveNotice(String(error)); return; }
   plies++;
@@ -610,7 +613,7 @@ async function manualMove(from, to) {
   try {
     const next = await invoke('make_move', { fen: position, uci: notation(from) + notation(to) + promotion, castling: allowCastling });
     if (revision !== token || position !== toFen()) return;
-    history.push(position); load(next); pendingMoveSound = { fen: toFen(), type: sound }; render(); syncTool(); schedule();
+    history.push(position); load(next); lastMove = [from, to]; pendingMoveSound = { fen: toFen(), type: sound }; render(); syncTool(); schedule();
   } catch (error) {
     if (revision === token) { moveNotice(String(error)); render(); schedule(); }
   } finally { movePending = false; }
@@ -688,22 +691,26 @@ $('#full-strength').onchange = event => { fullStrength = event.target.checked; s
 $('#elo').oninput = event => { elo = +event.target.value; syncStrength(); schedule(); };
 
 function captureWorkspace() {
-  return { fen: toFen(), history: history.slice(-1000), sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength };
+  return { fen: toFen(), history: history.slice(-1000), sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength, lastMove };
 }
 function defaultWorkspace(view) {
   const training = view === 'training';
-  return { fen: START, history: [], sfSide: training ? 'b' : null, auto: training, both: false, legalRules: training, allowCastling: true, flip: false, plies: 0, depth: 12, depthPreset: '12', customDepth: 24, elo: 1600, fullStrength: true };
+  return { fen: START, history: [], sfSide: training ? 'b' : null, auto: training, both: false, legalRules: training, allowCastling: true, flip: false, plies: 0, depth: 12, depthPreset: '12', customDepth: 24, elo: 1600, fullStrength: true, lastMove: null };
 }
 function restoreWorkspace(next) {
   load(next.fen); history = next.history.slice();
-  ({ sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength } = next);
+  ({ sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength, lastMove } = next);
   if (activeView === 'training') both = false;
 }
 function decodeWorkspace(values, view) {
   const next = defaultWorkspace(view);
   for (const [key, value] of Object.entries(values || {})) {
     if (!(key in next) || key === 'history') continue;
-    if (key === 'sfSide') next.sfSide = value === 'off' ? null : value;
+    if (key === 'lastMove') {
+      const squares = value.split(',').map(Number);
+      next.lastMove = values.fen && squares.length === 2 && squares.every(square => Number.isInteger(square) && square >= 0 && square < 64) && squares[0] !== squares[1] ? squares : null;
+    }
+    else if (key === 'sfSide') next.sfSide = value === 'off' ? null : value;
     else if (typeof next[key] === 'boolean') next[key] = value === 'true';
     else if (typeof next[key] === 'number') next[key] = +value;
     else next[key] = value;
@@ -724,7 +731,7 @@ function configSnapshot() {
   for (const view of ['analyzer', 'training']) {
     if (!current[view]) continue;
     saved[view] = Object.fromEntries(Object.entries(current[view]).map(([key, value]) => [key,
-      key === 'history' ? JSON.stringify(value) : key === 'sfSide' ? value || 'off' : String(value)]));
+      key === 'history' ? JSON.stringify(value) : key === 'lastMove' ? value ? value.join(',') : 'none' : key === 'sfSide' ? value || 'off' : String(value)]));
   }
   const settings = Object.fromEntries(Object.entries(preferences).map(([key, value]) => [key, String(value)]));
   settings.saveEnabled = String(saveEnabled);
