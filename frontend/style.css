@@ -150,3 +150,8 @@ aside h1{margin-bottom:8px}.rules-row{margin-bottom:10px}
 .save-grid label:has(input:disabled){opacity:.45;cursor:not-allowed}
 #config-location{overflow-wrap:anywhere;margin-top:16px}
 #persistence-error{font-size:12px;color:#d84b45;margin:4px 0 0}
+
+.settings-heading{font-size:16px;margin:28px 0 0}
+.engine-number{width:130px;flex-shrink:0;background:var(--panel);color:var(--text);font:inherit;font-variant-numeric:tabular-nums;border:1px solid var(--muted);border-radius:6px;padding:9px 12px}
+.analysis-variations{margin:10px 0 0;padding-left:24px;font:12px/1.6 Consolas,monospace;color:var(--muted);overflow-wrap:anywhere}
+.analysis-variations li{padding:3px 0 3px 4px}

@@ -6,6 +6,7 @@ I record changes here and use the versioning described in [VERSIONING.md](VERSIO
 
 ### Added
 
+- Saved engine preferences for available CPU threads (up to 16), 16–1,024 MiB hash memory, and 1–5 displayed analysis lines in Settings.
 - Move, capture, castling, and check sounds, with a Sound effects checkbox saved in settings.ini.
 - Custom Chessbot title bar with app icon and native minimize, maximize/restore, and close controls.
 - Analyzer and Game Training workspaces with independent board positions and animated green tab underlines.

@@ -127,6 +127,7 @@ No Rust or Node.js installation is required to run either download. I use those 
 - **Position Editing** - Drag pieces from the tray, move them around, or drop them off the board to remove them
 - **Two Workspaces** - Keep separate positions in Analyzer and Game Training, with animated green tab underlines
 - **Chess Rules** - Toggle Legal moves only and Allow castling; castling is validated in both workspaces, including rook movement and attacked squares
+- **Engine Controls** - Choose available CPU threads (up to 16), 16–1,024 MiB hash memory, and 1–5 displayed analysis lines in Settings; depth and playing strength stay on the main screen
 - **Custom Title Bar** - Chessbot icon and name with green minimize/maximize controls and a red close hover
 - **FEN Positions** - Import a position and copy the current board as FEN
 - **Move Analysis** - Show Stockfish's suggested move, principal variation, and evaluation

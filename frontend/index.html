@@ -71,6 +71,7 @@
       <div class="seg"><button class="act" data-flag="auto">Auto-play moves</button><button class="act" data-flag="both">Both sides</button></div>
       <p id="status"></p>
       <p id="line"></p>
+      <ol id="analysis-variations" class="analysis-variations" aria-label="Analysis lines" hidden></ol>
     </div>
     <div id="pal"></div>
     <div class="bar">
@@ -98,6 +99,10 @@
   <div class="preference"><div><label for="coordinates">Board coordinates</label><p>Show the files and ranks around the board.</p></div><label class="checkbox-control"><input id="coordinates" type="checkbox" checked></label></div>
   <div class="preference"><div><label for="suggestions">Move arrows</label><p>Show Stockfish’s suggested move on the board.</p></div><label class="checkbox-control"><input id="suggestions" type="checkbox" checked></label></div>
   <div class="preference"><div><label for="sound-effects">Sound effects</label><p>Play sounds for moves, captures, castling, and check.</p></div><label class="checkbox-control"><input id="sound-effects" type="checkbox" checked></label></div>
+  <h2 class="settings-heading">Engine</h2>
+  <div class="preference"><div><label for="engine-threads">CPU threads</label><p id="thread-limit">Use 1–16 logical CPU threads, depending on this system.</p></div><input id="engine-threads" class="engine-number" type="number" min="1" max="16" step="1" value="2" aria-describedby="thread-limit"></div>
+  <div class="preference"><div><label for="engine-hash">Hash memory (MiB)</label><p>Memory for cached positions, from 16 to 1,024 MiB.</p></div><input id="engine-hash" class="engine-number" type="number" min="16" max="1024" step="1" value="64"></div>
+  <div class="preference"><div><label for="analysis-count">Analysis lines</label><p>Compare up to five candidate moves. More lines can take longer.</p></div><select id="analysis-count" aria-label="Analysis lines"><option value="1">1 line</option><option value="2">2 lines</option><option value="3">3 lines</option><option value="4">4 lines</option><option value="5">5 lines</option></select></div>
   <fieldset class="save-options">
     <legend>Remember between sessions</legend>
     <p class="hint">Settings preferences always save. Choose which workspace controls to remember in saved.ini.</p>

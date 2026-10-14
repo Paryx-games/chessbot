@@ -1,9 +1,49 @@
+use serde::Deserialize;
 use shakmaty::{fen::Fen, CastlingMode, Chess};
+
+pub fn max_threads() -> u8 {
+    std::thread::available_parallelism().map_or(1, |count| count.get().min(16) as u8)
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct EngineTuning {
+    pub threads: u8,
+    pub hash: u16,
+    pub lines: u8,
+}
+impl Default for EngineTuning {
+    fn default() -> Self {
+        Self {
+            threads: max_threads().min(2),
+            hash: 64,
+            lines: 1,
+        }
+    }
+}
+impl EngineTuning {
+    fn validate(self) -> Result<(), String> {
+        if !(1..=max_threads()).contains(&self.threads) {
+            return Err(format!(
+                "CPU threads must be between 1 and {}",
+                max_threads()
+            ));
+        }
+        if !(16..=1024).contains(&self.hash) {
+            return Err("Hash memory must be between 16 and 1024 MiB".into());
+        }
+        if !(1..=5).contains(&self.lines) {
+            return Err("Analysis lines must be between 1 and 5".into());
+        }
+        Ok(())
+    }
+}
 
 pub struct SearchOptions<'a> {
     pub fen: &'a str,
     pub depth: u8,
     pub elo: Option<u16>,
+    pub tuning: EngineTuning,
 }
 use std::{
     io::{BufRead, BufReader, Write},
@@ -32,6 +72,7 @@ pub struct Engine {
     stdin: ChildStdin,
     output: mpsc::Receiver<String>,
     pub name: String,
+    tuning: EngineTuning,
 }
 
 impl Drop for Engine {
@@ -77,6 +118,7 @@ impl Engine {
             stdin,
             output,
             name: "Stockfish".into(),
+            tuning: EngineTuning::default(),
         };
         engine.send("uci")?;
         let deadline = Instant::now() + Duration::from_secs(15);
@@ -89,7 +131,10 @@ impl Engine {
                 break;
             }
         }
-        engine.send("setoption name Threads value 2")?;
+        engine.send(&format!(
+            "setoption name Threads value {}",
+            engine.tuning.threads
+        ))?;
         engine.send("setoption name Hash value 64")?;
         engine.send("isready")?;
         while engine.read(deadline)? != "readyok" {}
@@ -124,6 +169,7 @@ impl Engine {
                 depth,
 
                 elo: None,
+                tuning: EngineTuning::default(),
             },
             generation,
             latest,
@@ -138,7 +184,13 @@ impl Engine {
         latest: &AtomicU64,
         mut emit: impl FnMut(&str),
     ) -> Result<(), String> {
-        let SearchOptions { fen, depth, elo } = options;
+        let SearchOptions {
+            fen,
+            depth,
+            elo,
+            tuning,
+        } = options;
+        tuning.validate()?;
         validate_fen(fen)?;
         if !(1..=48).contains(&depth) {
             return Err("Depth must be between 1 and 48".into());
@@ -157,7 +209,14 @@ impl Engine {
         if let Some(elo) = elo {
             self.send(&format!("setoption name UCI_Elo value {elo}"))?;
         }
-        self.send("setoption name MultiPV value 1")?;
+        if tuning.threads != self.tuning.threads {
+            self.send(&format!("setoption name Threads value {}", tuning.threads))?;
+        }
+        if tuning.hash != self.tuning.hash {
+            self.send(&format!("setoption name Hash value {}", tuning.hash))?;
+        }
+        self.send(&format!("setoption name MultiPV value {}", tuning.lines))?;
+        self.tuning = tuning;
         self.send(&format!("position fen {fen}"))?;
         self.send(&format!("go depth {depth}"))?;
         // Depth-limited searches may take a long time; only cancellation has a timeout.
@@ -193,6 +252,90 @@ mod tests {
     use super::*;
     const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     #[test]
+    fn tuning_validates_ranges_and_resets_multipv_between_searches() {
+        let defaults = EngineTuning::default();
+        for tuning in [
+            EngineTuning {
+                threads: 0,
+                ..defaults
+            },
+            EngineTuning {
+                threads: max_threads() + 1,
+                ..defaults
+            },
+            EngineTuning {
+                hash: 15,
+                ..defaults
+            },
+            EngineTuning {
+                hash: 1025,
+                ..defaults
+            },
+            EngineTuning {
+                lines: 0,
+                ..defaults
+            },
+            EngineTuning {
+                lines: 6,
+                ..defaults
+            },
+        ] {
+            assert!(tuning.validate().is_err());
+        }
+        assert!(EngineTuning {
+            threads: max_threads(),
+            hash: 1024,
+            lines: 5
+        }
+        .validate()
+        .is_ok());
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("binaries/stockfish-x86_64-pc-windows-msvc.exe");
+        let mut engine = Engine::start(&path).unwrap();
+        let latest = AtomicU64::new(1);
+        let tuning = EngineTuning {
+            threads: 1,
+            hash: 32,
+            lines: 5,
+        };
+        let mut variations = std::collections::BTreeSet::new();
+        engine
+            .analyse_options(
+                SearchOptions {
+                    fen: START,
+                    depth: 4,
+                    elo: None,
+                    tuning,
+                },
+                1,
+                &latest,
+                |line| {
+                    let words = line.split_whitespace().collect::<Vec<_>>();
+                    if let Some(index) = words.iter().position(|word| *word == "multipv") {
+                        variations.insert(words[index + 1].to_string());
+                    }
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            variations,
+            ["1", "2", "3", "4", "5"]
+                .into_iter()
+                .map(String::from)
+                .collect()
+        );
+        assert_eq!(engine.tuning, tuning);
+        let mut extra_line = false;
+        engine
+            .analyse(START, 4, 1, &latest, |line| {
+                extra_line |= line.contains("multipv 2");
+            })
+            .unwrap();
+        assert!(!extra_line);
+        assert_eq!(engine.tuning, defaults);
+    }
+
+    #[test]
     fn elo_limits_validate_cancel_and_reset_between_searches() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("binaries/stockfish-x86_64-pc-windows-msvc.exe");
@@ -204,7 +347,8 @@ mod tests {
                     SearchOptions {
                         fen: START,
                         depth: 4,
-                        elo
+                        elo,
+                        tuning: EngineTuning::default(),
                     },
                     1,
                     &latest,
@@ -220,6 +364,7 @@ mod tests {
                         fen: START,
                         depth: 4,
                         elo,
+                        tuning: EngineTuning::default(),
                     },
                     1,
                     &latest,
@@ -243,6 +388,7 @@ mod tests {
                         fen: START,
                         depth: 48,
                         elo: Some(1600),
+                        tuning: EngineTuning::default(),
                     },
                     1,
                     &latest,

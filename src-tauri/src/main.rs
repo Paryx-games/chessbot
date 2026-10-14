@@ -44,6 +44,11 @@ fn sidecar_path() -> PathBuf {
 }
 
 #[tauri::command]
+fn engine_max_threads() -> u8 {
+    engine::max_threads()
+}
+
+#[tauri::command]
 async fn engine_start(state: State<'_, Backend>) -> Result<String, String> {
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -93,6 +98,7 @@ async fn engine_analyse(
     on_line: Channel<String>,
     castling: Option<bool>,
     elo: Option<u16>,
+    tuning: Option<engine::EngineTuning>,
     state: State<'_, Backend>,
 ) -> Result<(), String> {
     engine::validate_fen(&fen)?;
@@ -112,6 +118,7 @@ async fn engine_analyse(
                 fen: &fen,
                 depth,
                 elo,
+                tuning: tuning.unwrap_or_default(),
             },
             generation,
             &state.latest,
@@ -164,6 +171,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             config_load,
             config_save,
+            engine_max_threads,
             engine_start,
             engine_analyse,
             engine_cancel,

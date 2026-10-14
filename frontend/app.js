@@ -16,7 +16,8 @@ let grid = Array(64).fill(''), flip = false, tool = null, drag = null, ghost = n
 let turn = 'w', ep = '-', cr = new Set('KQkq'), sfSide = null, sug = null;
 let activeView = 'analyzer', legalRules = false, allowCastling = true, movePending = false;
 let elo = 1600, fullStrength = true, settingsOpen = false;
-let preferences = { theme: 'green', appearance: 'system', reducedMotion: false, coordinates: true, suggestions: true, soundEffects: true };
+let preferences = { theme: 'green', appearance: 'system', reducedMotion: false, coordinates: true, suggestions: true, soundEffects: true, threads: 2, hash: 64, lines: 1 };
+let maxThreads = 1;
 let saveEnabled = true;
 const saveChoices = Object.fromEntries(['depth', 'strength', 'side', 'rules', 'automation', 'position', 'orientation', 'workspace'].map(key => [key, true]));
 let configReady = false, saveTimer = null, saveChain = Promise.resolve(), closingWindow = false;
@@ -162,6 +163,12 @@ $('#clear').onclick = () => { if (legalRules) return; grid = Array(64).fill('');
 $('#flip').onclick = () => { flip = !flip; render(); };
 $('#erase').onclick = () => { if (legalRules) return; tool = tool === 'x' ? null : 'x'; syncTool(); };
 function applyPreferences() {
+  preferences.threads = Math.min(maxThreads, Math.max(1, Math.round(preferences.threads) || 1));
+  preferences.hash = Math.min(1024, Math.max(16, Math.round(preferences.hash) || 64));
+  preferences.lines = Math.min(5, Math.max(1, Math.round(preferences.lines) || 1));
+  $('#engine-threads').max = maxThreads; $('#engine-threads').value = preferences.threads;
+  $('#engine-hash').value = preferences.hash; $('#analysis-count').value = preferences.lines;
+  $('#thread-limit').textContent = `Use 1–${maxThreads} logical CPU threads on this system.`;
   if (!THEMES[preferences.theme]) preferences.theme = 'green';
   if (!['system', 'light', 'dark'].includes(preferences.appearance)) preferences.appearance = 'system';
   const root = document.documentElement;
@@ -182,6 +189,11 @@ for (const [id, key] of Object.entries({theme:'theme', appearance:'appearance', 
     preferences[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     applyPreferences();
     queueSave();
+  };
+}
+for (const [id, key] of [['engine-threads', 'threads'], ['engine-hash', 'hash'], ['analysis-count', 'lines']]) {
+  $('#' + id).onchange = event => {
+    preferences[key] = +event.target.value; applyPreferences(); queueSave(); schedule();
   };
 }
 fen.addEventListener('change', async () => {
@@ -385,7 +397,7 @@ async function schedule() {
   if (activeView === 'training') both = false;
   const my = ++token;
   cancellation = invoke('engine_cancel').catch(() => {});
-  sug = null; $('#line').textContent = ''; $('#evf').style.height = '50%';
+  sug = null; $('#line').textContent = ''; $('#analysis-variations').replaceChildren(); $('#analysis-variations').hidden = true; $('#evf').style.height = '50%';
   syncUI(); drawArrow();
   const currentFen = toFen();
   paintGameStatus({ kind: 'playing', message: 'Checking position…', checked_square: null });
@@ -416,22 +428,29 @@ async function search(my) {
   if (bad) return status(bad);
   status(`Thinking for ${name(turn)}...`);
   let info = '';
+  const variations = new Map();
   const onLine = new Channel();
   onLine.onmessage = line => {
     if (my !== token) return;
     if (/^info .* score .* pv /.test(line)) {
-      if (+(line.match(/\bmultipv (\d+)/)?.[1] || 1) !== 1) return;
+      const rank = +(line.match(/\bmultipv (\d+)/)?.[1] || 1);
+      if (rank < 1 || rank > preferences.lines) return;
+      variations.set(rank, line);
+      if (preferences.lines > 1) renderVariations(variations);
+      if (rank !== 1) return;
       info = line;
       const best = line.split(' pv ')[1]?.split(' ')[0];
       const currentDepth = +(line.match(/\bdepth (\d+)/)?.[1] || 1);
       if (best) show(best, info, currentDepth);
 
     } else if (line.startsWith('bestmove ')) {
-      show(line.split(' ')[1], info, 0);
+      const best = line.split(' ')[1];
+      const selected = [...variations.values()].find(candidate => candidate.split(' pv ')[1]?.split(' ')[0] === best);
+      show(best, selected || info, 0);
     }
   };
   try {
-    await invoke('engine_analyse', { fen: toFen(), depth, onLine, castling: allowCastling, elo: fullStrength ? null : elo });
+    await invoke('engine_analyse', { fen: toFen(), depth, onLine, castling: allowCastling, elo: fullStrength ? null : elo, tuning: { threads: preferences.threads, hash: preferences.hash, lines: preferences.lines } });
   } catch (error) {
     if (my !== token) return;
     crashed = true;
@@ -439,6 +458,24 @@ async function search(my) {
     drawArrow();
     status(String(error));
   }
+}
+
+function variationText(info) {
+  const score = info.match(/score (cp|mate) (-?\d+)/);
+  let evaluation = '';
+  if (score) {
+    const value = +score[2] * (turn === 'b' ? -1 : 1);
+    evaluation = score[1] === 'mate' ? `${value >= 0 ? '+' : '-'}M${Math.abs(value)}` : `${value > 0 ? '+' : ''}${(value / 100).toFixed(2)}`;
+  }
+  const pv = (info.split(' pv ')[1] || '').split(' ').filter(move => /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(move)).slice(0, 6).join(' ');
+  const searched = info.match(/\bdepth (\d+)/)?.[1] || '?';
+  return `${evaluation}  depth ${searched}  ${pv}`;
+}
+function renderVariations(variations) {
+  const list = $('#analysis-variations'); list.hidden = false;
+  list.replaceChildren(...[...variations.entries()].sort(([a], [b]) => a - b).map(([, info]) => {
+    const row = document.createElement('li'); row.textContent = variationText(info); return row;
+  }));
 }
 
 function show(best, info, live) {
@@ -455,7 +492,7 @@ function show(best, info, live) {
   $('#evf').style.height = pct + '%';
   const label = !fullStrength ? 'Suggested move' : 'Best move';
   status(live ? `Thinking for ${name(turn)}... depth ${live}` : `${label} for ${name(turn)}: ${best.slice(0, 2)}-${best.slice(2)}`);
-  $('#line').textContent = `eval ${txt}  ${pv}`;
+  $('#line').textContent = preferences.lines === 1 ? `eval ${txt}  ${pv}` : '';
   drawArrow();
   if (!live && (auto || both)) { const my = token; timer = setTimeout(() => playSug(my, best), 150); }
 }
@@ -722,9 +759,10 @@ document.querySelectorAll('[data-save]').forEach(input => input.onchange = () =>
 async function initialize() {
   load(START);
   try {
-    const config = await invoke('config_load');
+    const [config, threadLimit] = await Promise.all([invoke('config_load'), invoke('engine_max_threads')]);
+    maxThreads = threadLimit;
     for (const key of Object.keys(preferences)) {
-      if (config.settings[key] != null) preferences[key] = typeof preferences[key] === 'boolean' ? config.settings[key] === 'true' : config.settings[key];
+      if (config.settings[key] != null) preferences[key] = typeof preferences[key] === 'boolean' ? config.settings[key] === 'true' : typeof preferences[key] === 'number' ? +config.settings[key] : config.settings[key];
     }
     if (!config.settings_exists) {
       try {

@@ -41,6 +41,9 @@ fn number(value: &str, low: u32, high: u32) -> bool {
 }
 fn valid_setting(key: &str, value: &str) -> bool {
     match key {
+        "threads" => number(value, 1, 16),
+        "hash" => number(value, 16, 1024),
+        "lines" => number(value, 1, 5),
         "theme" => matches!(value, "green" | "brown" | "blue" | "purple"),
         "appearance" => matches!(value, "system" | "light" | "dark"),
         "reducedMotion" | "coordinates" | "suggestions" | "soundEffects" | "saveEnabled" => {
@@ -238,6 +241,25 @@ mod tests {
         };
         clean(&mut config);
         assert!(config.saved["analyzer"].contains_key("fen"));
+    }
+
+    #[test]
+    fn engine_preferences_validate_before_persistence() {
+        let mut config = Config {
+            settings: BTreeMap::from([
+                ("threads".into(), "16".into()),
+                ("hash".into(), "1024".into()),
+                ("lines".into(), "5".into()),
+            ]),
+            ..Config::default()
+        };
+        clean(&mut config);
+        assert_eq!(config.settings.len(), 3);
+        config.settings.insert("threads".into(), "17".into());
+        config.settings.insert("hash".into(), "15".into());
+        config.settings.insert("lines".into(), "6".into());
+        clean(&mut config);
+        assert!(config.settings.is_empty());
     }
 
     #[test]
