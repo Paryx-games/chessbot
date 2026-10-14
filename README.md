@@ -136,6 +136,7 @@ No Rust or Node.js installation is required to run either download. I use those 
 - **Automatic Moves** - Let Stockfish apply its suggestions for one side or play both sides
 - **Game Status** - Show check, checkmate, stalemate, and supported draw conditions, with a red square around a checked king
 - **Board Appearance** - Flip the board and choose from four colour themes
+- **Remembered Controls** - Save display preferences in `settings.ini` and selected workspace controls in `saved.ini`; checkboxes in Settings choose what gets remembered
 
 Analyzer starts with free editing. Game Training starts with legal rules enabled and Stockfish playing Black automatically; Both sides is disabled so I can play against the bot. When legal rules apply, moves must follow the side to move, king safety, and the other standard chess rules. I can load a valid FEN to train a different position, or turn legal rules off to edit freely. Manual promotion defaults to a queen; engine moves preserve Stockfish's selected promotion piece.
 
@@ -158,6 +159,8 @@ Playful uses the same evaluated alternatives and immediate draw checks, but favo
 4. **Analyse or train** - Choose White or Black under Stockfish plays, then select a depth. In Analyzer, choose Normal, Queen Collector, or Playful. Both workspaces offer an estimated 1320–3190 Elo slider; turn off Full strength to use it. Limited Elo takes priority over playing style. I use depth 12 as the default; Custom reveals the 1–48 slider.
 5. **Automate** - Enable Auto-play moves to apply suggestions, or Both sides in Analyzer to watch Stockfish play itself.
 6. **Display and share** - Flip the board, choose board colour and display preferences in Settings, and use Copy FEN to share the current position.
+
+Settings preferences always save to `settings.ini` in the app configuration folder. `saved.ini` remembers the selected depth, playing mode, strength, side, rule controls, automation, board position/history, orientation, and last workspace. I can uncheck individual categories or disable workspace saving; unchecked values are removed from the saved file. Each workspace keeps its own values. The configuration folder appears at the bottom of Settings.
 
 The game-status box identifies check, checkmate, stalemate, insufficient material, repetition, and move-count draws. I stop automatic play at terminal positions, claimable draws, or after 200 plies. Changing the position or depth cancels the old search.
 

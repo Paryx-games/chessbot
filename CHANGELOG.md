@@ -6,6 +6,7 @@ I record changes here and use the versioning described in [VERSIONING.md](VERSIO
 
 ### Added
 
+- settings.ini for display preferences and save choices, plus saved.ini for independent workspace state. Checkboxes select which controls to remember or disable workspace saving entirely.
 - Settings tab for board colour, interface appearance, reduced motion, coordinates, and move arrows, saved on this device.
 - Estimated 1320–3190 Elo slider in both workspaces, with a full-strength option. Limited Elo takes priority over playing style.
 

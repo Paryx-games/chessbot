@@ -17,10 +17,9 @@ let turn = 'w', ep = '-', cr = new Set('KQkq'), sfSide = null, sug = null;
 let activeView = 'analyzer', legalRules = false, allowCastling = true, movePending = false;
 let playMode = 'normal', elo = 1600, fullStrength = true, settingsOpen = false;
 let preferences = { theme: 'green', appearance: 'system', reducedMotion: false, coordinates: true, suggestions: true };
-try { const saved = JSON.parse(localStorage.getItem('chessbot.preferences')); if (saved && typeof saved === 'object') {
-  for (const key of ['theme', 'appearance']) if (typeof saved[key] === 'string') preferences[key] = saved[key];
-  for (const key of ['reducedMotion', 'coordinates', 'suggestions']) if (typeof saved[key] === 'boolean') preferences[key] = saved[key];
-} } catch { /* I use defaults if saved preferences are unavailable. */ }
+let saveEnabled = true;
+const saveChoices = Object.fromEntries(['depth', 'mode', 'strength', 'side', 'rules', 'automation', 'position', 'orientation', 'workspace'].map(key => [key, true]));
+let configReady = false, saveTimer = null, saveChain = Promise.resolve(), closingWindow = false;
 const sessions = { analyzer: null, training: null };
 let halfmoves = 0, fullmoves = 1, history = [], gameState = null, stateFen = '';
 
@@ -66,6 +65,7 @@ function load(f) {
 }
 
 function render() {
+  queueSave();
   $('.board-area').classList.toggle('flipped', flip);
   board.innerHTML = '';
   for (let dr = 0; dr < 8; dr++) for (let dc = 0; dc < 8; dc++) {
@@ -179,7 +179,7 @@ for (const [id, key] of Object.entries({theme:'theme', appearance:'appearance', 
   $('#' + id).onchange = event => {
     preferences[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     applyPreferences();
-    try { localStorage.setItem('chessbot.preferences', JSON.stringify(preferences)); } catch { /* I keep preferences for this session. */ }
+    queueSave();
   };
 }
 fen.addEventListener('change', async () => {
@@ -362,6 +362,7 @@ function paintGameStatus(result) {
 }
 
 async function schedule() {
+  queueSave();
   clearTimeout(timer);
   if (activeView === 'training') both = false;
   const my = ++token;
@@ -605,16 +606,13 @@ function switchWorkspace(nextView) {
   if (nextView === activeView) { if (wasSettings) { syncWorkspace(); schedule(); } return; }
   if (drag) finish({}, true);
   closeDepth();
-  sessions[activeView] = { fen: toFen(), history: history.slice(), sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength, playMode };
+  sessions[activeView] = captureWorkspace();
   activeView = nextView;
   const next = sessions[nextView];
   if (next) {
-    load(next.fen); history = next.history.slice();
-    ({ sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength, playMode } = next);
+    restoreWorkspace(next);
   } else {
-    load(START); history = []; plies = 0; flip = false;
-    sfSide = 'b'; auto = true; both = false; legalRules = true; allowCastling = true;
-    depth = 12; depthPreset = '12'; customDepth = 24; elo = 1600; fullStrength = true; playMode = 'normal';
+    restoreWorkspace(defaultWorkspace(nextView));
   }
   tool = null; crashed = false; sug = null; gameState = null; moveNotice();
   syncDepth(); syncWorkspace(); render(); syncTool(); schedule();
@@ -647,10 +645,112 @@ function syncStrength() {
 $('#full-strength').onchange = event => { fullStrength = event.target.checked; syncStrength(); schedule(); };
 $('#elo').oninput = event => { elo = +event.target.value; syncStrength(); schedule(); };
 
+function captureWorkspace() {
+  return { fen: toFen(), history: history.slice(-1000), sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength, playMode };
+}
+function defaultWorkspace(view) {
+  const training = view === 'training';
+  return { fen: START, history: [], sfSide: training ? 'b' : null, auto: training, both: false, legalRules: training, allowCastling: true, flip: false, plies: 0, depth: 12, depthPreset: '12', customDepth: 24, elo: 1600, fullStrength: true, playMode: 'normal' };
+}
+function restoreWorkspace(next) {
+  load(next.fen); history = next.history.slice();
+  ({ sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength, playMode } = next);
+  if (activeView === 'training') both = false;
+}
+function decodeWorkspace(values, view) {
+  const next = defaultWorkspace(view);
+  for (const [key, value] of Object.entries(values || {})) {
+    if (!(key in next) || key === 'history') continue;
+    if (key === 'sfSide') next.sfSide = value === 'off' ? null : value;
+    else if (typeof next[key] === 'boolean') next[key] = value === 'true';
+    else if (typeof next[key] === 'number') next[key] = +value;
+    else next[key] = value;
+  }
+  if (values?.fen && values.history) {
+    try {
+      const restored = JSON.parse(values.history);
+      if (Array.isArray(restored)) next.history = restored.filter(fen => typeof fen === 'string' && fen.length <= 200).slice(-1000);
+    } catch { /* I keep the position and start a fresh repetition history. */ }
+  }
+  next.depth = next.depthPreset === 'custom' ? next.customDepth : +next.depthPreset;
+  if (view === 'training') next.both = false;
+  return next;
+}
+function configSnapshot() {
+  const current = { ...sessions, [activeView]: captureWorkspace() };
+  const saved = { app: { activeView } };
+  for (const view of ['analyzer', 'training']) {
+    if (!current[view]) continue;
+    saved[view] = Object.fromEntries(Object.entries(current[view]).map(([key, value]) => [key,
+      key === 'history' ? JSON.stringify(value) : key === 'sfSide' ? value || 'off' : String(value)]));
+  }
+  const settings = Object.fromEntries(Object.entries(preferences).map(([key, value]) => [key, String(value)]));
+  settings.saveEnabled = String(saveEnabled);
+  for (const [key, value] of Object.entries(saveChoices)) settings['save_' + key] = String(value);
+  return { settings, saved };
+}
+function configError(error) {
+  $('#persistence-error').hidden = !error;
+  $('#persistence-error').textContent = error ? 'Configuration: ' + String(error) : '';
+  $('#config-notice').textContent = error ? String(error) : 'Saved automatically to settings.ini and saved.ini.';
+}
+function queueSave() {
+  if (!configReady) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushConfig, 150);
+}
+function flushConfig() {
+  clearTimeout(saveTimer); saveTimer = null;
+  if (!configReady) return saveChain;
+  const config = configSnapshot();
+  saveChain = saveChain.then(() => invoke('config_save', { config })).then(() => { configError(null); try { localStorage.removeItem('chessbot.preferences'); } catch { /* I keep using the INI files. */ } }).catch(configError);
+  return saveChain;
+}
+function syncSaveChoices() {
+  $('#save-enabled').checked = saveEnabled;
+  document.querySelectorAll('[data-save]').forEach(input => {
+    input.checked = saveChoices[input.dataset.save]; input.disabled = !saveEnabled;
+  });
+}
+$('#save-enabled').onchange = event => { saveEnabled = event.target.checked; syncSaveChoices(); queueSave(); };
+document.querySelectorAll('[data-save]').forEach(input => input.onchange = () => { saveChoices[input.dataset.save] = input.checked; queueSave(); });
+async function initialize() {
+  load(START);
+  try {
+    const config = await invoke('config_load');
+    for (const key of Object.keys(preferences)) {
+      if (config.settings[key] != null) preferences[key] = typeof preferences[key] === 'boolean' ? config.settings[key] === 'true' : config.settings[key];
+    }
+    if (!config.settings_exists) {
+      try {
+        const old = JSON.parse(localStorage.getItem('chessbot.preferences'));
+        for (const key of Object.keys(preferences)) if (typeof old?.[key] === typeof preferences[key]) preferences[key] = old[key];
+      } catch { /* I use defaults when there are no earlier preferences. */ }
+    }
+    saveEnabled = config.settings.saveEnabled !== 'false';
+    for (const key of Object.keys(saveChoices)) saveChoices[key] = config.settings['save_' + key] !== 'false';
+    for (const view of ['analyzer', 'training']) sessions[view] = decodeWorkspace(config.saved[view], view);
+    activeView = config.saved.app?.activeView || 'analyzer';
+    restoreWorkspace(sessions[activeView]);
+    $('#config-location').textContent = 'Configuration folder: ' + config.directory;
+    configReady = true;
+  } catch (error) {
+    configError('Could not load configuration: ' + String(error));
+  }
+  applyPreferences(); syncSaveChoices(); syncDepth(); syncWorkspace(); render(); syncTool(); boot(); schedule();
+}
+
 const appWindow = window.__TAURI__.window.getCurrentWindow();
 $('#window-minimize').onclick = () => appWindow.minimize().catch(error => status(String(error)));
 $('#window-maximize').onclick = () => appWindow.toggleMaximize().catch(error => status(String(error)));
 $('#window-close').onclick = () => appWindow.close().catch(error => status(String(error)));
+appWindow.onCloseRequested(async event => {
+  if (closingWindow) { event.preventDefault(); return; }
+  closingWindow = true;
+  clearTimeout(timer); ++token;
+  await invoke('engine_cancel').catch(() => {});
+  await flushConfig();
+});
 async function syncWindowIcon() {
   const maximized = await appWindow.isMaximized();
   $('#window-maximize').setAttribute('aria-label', maximized ? 'Restore window' : 'Maximize window');
@@ -660,4 +760,4 @@ async function syncWindowIcon() {
 appWindow.onResized(() => syncWindowIcon().catch(() => {}));
 syncWindowIcon().catch(() => {});
 
-load(START); applyPreferences(); syncWorkspace(); render(); boot(); schedule();
+initialize();

@@ -140,3 +140,15 @@ aside>*{min-width:0}
 
 aside h1{margin-bottom:8px}.rules-row{margin-bottom:10px}
 .pb{max-height:48px}
+
+.checkbox-control input,.save-options input{position:static;opacity:1;width:16px;height:16px;margin:0;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.checkbox-control{display:flex;align-items:center}
+.save-options{border:0;padding:24px 0 12px;margin:0;min-width:0}
+.save-options legend{font-size:16px;font-weight:650;padding-top:24px}
+.save-options .hint{margin:0 0 16px}
+.save-options label{display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer}
+.save-master{font-weight:600;margin-bottom:20px}
+.save-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px}
+.save-grid label:has(input:disabled){opacity:.45;cursor:not-allowed}
+#config-location{overflow-wrap:anywhere;margin-top:16px}
+#persistence-error{font-size:12px;color:#d84b45;margin:4px 0 0}

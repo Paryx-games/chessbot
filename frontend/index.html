@@ -104,11 +104,29 @@
         <option value="blue">Blue</option><option value="purple">Purple</option>
       </select></div>
   <div class="preference"><div><label for="appearance">Appearance</label><p>Follow the system or choose a light or dark interface.</p></div><select id="appearance"><option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option></select></div>
-  <div class="preference"><div><label for="reduced-motion">Reduced motion</label><p>Keep transitions still. The system preference also applies.</p></div><label class="toggle"><input id="reduced-motion" type="checkbox"><span class="switch" aria-hidden="true"></span></label></div>
-  <div class="preference"><div><label for="coordinates">Board coordinates</label><p>Show the files and ranks around the board.</p></div><label class="toggle"><input id="coordinates" type="checkbox" checked><span class="switch" aria-hidden="true"></span></label></div>
-  <div class="preference"><div><label for="suggestions">Move arrows</label><p>Show Stockfish’s suggested move on the board.</p></div><label class="toggle"><input id="suggestions" type="checkbox" checked><span class="switch" aria-hidden="true"></span></label></div>
+  <div class="preference"><div><label for="reduced-motion">Reduced motion</label><p>Keep transitions still. The system preference also applies.</p></div><label class="checkbox-control"><input id="reduced-motion" type="checkbox"></label></div>
+  <div class="preference"><div><label for="coordinates">Board coordinates</label><p>Show the files and ranks around the board.</p></div><label class="checkbox-control"><input id="coordinates" type="checkbox" checked></label></div>
+  <div class="preference"><div><label for="suggestions">Move arrows</label><p>Show Stockfish’s suggested move on the board.</p></div><label class="checkbox-control"><input id="suggestions" type="checkbox" checked></label></div>
+  <fieldset class="save-options">
+    <legend>Remember between sessions</legend>
+    <p class="hint">Settings preferences always save. Choose which workspace controls to remember in saved.ini.</p>
+    <label class="save-master"><input id="save-enabled" type="checkbox" checked>Save workspace controls</label>
+    <div class="save-grid">
+      <label><input type="checkbox" data-save="depth" checked>Search depth</label>
+      <label><input type="checkbox" data-save="mode" checked>Playing mode</label>
+      <label><input type="checkbox" data-save="strength" checked>Elo and full strength</label>
+      <label><input type="checkbox" data-save="side" checked>Stockfish side</label>
+      <label><input type="checkbox" data-save="rules" checked>Legal rules and castling</label>
+      <label><input type="checkbox" data-save="automation" checked>Auto-play controls</label>
+      <label><input type="checkbox" data-save="position" checked>Board position and move history</label>
+      <label><input type="checkbox" data-save="orientation" checked>Board orientation</label>
+      <label><input type="checkbox" data-save="workspace" checked>Last workspace</label>
+    </div>
+  </fieldset>
+  <p id="config-location" class="hint"></p>
+  <p id="config-notice" class="hint" role="status" aria-live="polite"></p>
 </section>
-<footer id="app-footer"><p id="board-help"></p></footer>
+<footer id="app-footer"><p id="board-help"></p><p id="persistence-error" role="alert" hidden></p></footer>
 <script src="app.js" defer></script>
 </body>
 </html>

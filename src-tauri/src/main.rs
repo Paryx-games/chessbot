@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod config;
 mod engine;
 mod game_status;
 mod modes;
@@ -142,6 +143,25 @@ async fn engine_analyse(
     .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+fn config_load(store: State<'_, Mutex<config::Store>>) -> Result<config::Config, String> {
+    store
+        .lock()
+        .map_err(|_| "Configuration lock poisoned")?
+        .load()
+}
+
+#[tauri::command]
+fn config_save(
+    config: config::Config,
+    store: State<'_, Mutex<config::Store>>,
+) -> Result<(), String> {
+    store
+        .lock()
+        .map_err(|_| "Configuration lock poisoned")?
+        .save(config)
+}
+
 fn main() {
     let backend = Backend {
         engine: Arc::new(Mutex::new(None)),
@@ -150,7 +170,13 @@ fn main() {
     };
     tauri::Builder::default()
         .manage(backend)
+        .setup(|app| {
+            app.manage(Mutex::new(config::Store(app.path().app_config_dir()?)));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
+            config_load,
+            config_save,
             engine_start,
             engine_analyse,
             engine_cancel,
