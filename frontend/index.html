@@ -19,7 +19,7 @@
 <nav class="app-tabs" role="tablist" aria-label="Chessbot workspace">
   <button id="tab-analyzer" role="tab" aria-selected="true" aria-controls="workspace" tabindex="0" data-view="analyzer">Analyzer</button>
   <button id="tab-training" role="tab" aria-selected="false" aria-controls="workspace" tabindex="-1" data-view="training">Game Training</button>
-  <span class="tab-underline" aria-hidden="true"></span>
+  <button id="tab-settings" role="tab" aria-selected="false" aria-controls="settings" tabindex="-1" data-view="settings">Settings</button>
 </nav>
 <main id="workspace" role="tabpanel" aria-labelledby="tab-analyzer">
   <div class="board-area">
@@ -33,7 +33,9 @@
       <label class="toggle"><input id="allow-castling" type="checkbox" checked><span class="switch" aria-hidden="true"></span>Allow castling</label>
     </div>
     <p id="move-notice" class="move-notice" role="alert" hidden></p>
-    <div id="training-modes" class="card" hidden>
+    <div id="game-status" class="game-status" role="status" aria-live="polite" aria-atomic="true" data-kind="playing">White to move</div>
+    <div id="training-modes" class="card">
+      <div id="playing-styles">
       <div class="lbl">Playing mode</div>
       <div class="seg mode-controls">
         <button class="act on" data-mode="normal" aria-pressed="true">Normal</button>
@@ -41,9 +43,15 @@
         <button class="act" data-mode="playful" aria-pressed="false">Playful</button>
       </div>
       <p id="mode-description" class="hint">Stockfish chooses its strongest evaluated move.</p>
+      </div>
+      <div class="strength-row"><label class="toggle"><input id="full-strength" type="checkbox" checked><span class="switch" aria-hidden="true"></span>Full strength</label><output id="elo-value" for="elo">Unlimited</output></div>
+      <div id="elo-controls" hidden>
+      <label class="lbl" for="elo">Elo level</label>
+      <input id="elo" type="range" min="1320" max="3190" step="10" value="1600" disabled aria-describedby="elo-help">
+      <p id="elo-help" class="hint">Estimated strength, 1320–3190 Elo. At limited Elo, strength takes priority over playing style.</p>
+      </div>
       <p id="mode-explanation" class="hint" aria-live="polite"></p>
     </div>
-    <div id="game-status" class="game-status" role="status" aria-live="polite" aria-atomic="true" data-kind="playing">White to move</div>
     <div class="card">
       <div class="lbl">Stockfish plays</div>
       <div class="seg"><button class="act" data-side="off">Off</button><button class="act" data-side="w">White</button><button class="act" data-side="b">Black</button></div>
@@ -80,18 +88,27 @@
       <button class="act" id="clear">Clear</button>
       <button class="act" id="flip">Flip</button>
       <button class="act" id="erase">Eraser</button>
-      <select id="theme" aria-label="Board theme">
-        <option value="green">Green</option><option value="brown">Brown</option>
-        <option value="blue">Blue</option><option value="purple">Purple</option>
-      </select>
+
     </div>
     <div class="row">
       <input id="fen" spellcheck="false" aria-label="FEN">
       <button class="act go" id="copy">Copy FEN</button>
     </div>
-    <p id="board-help" class="hint">Drag pieces from the tray onto the board, or drop them off the board to remove. Moving a piece on the board passes the turn, and Stockfish only suggests once it is its side's turn. Right-click clears a square.</p>
   </aside>
 </main>
+<section id="settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+  <h1>Settings</h1>
+  <p class="settings-intro">Make the board feel right. Preferences are saved on this device.</p>
+  <div class="preference"><div><label for="theme">Board colour</label><p>Choose the light and dark squares.</p></div>      <select id="theme" aria-label="Board theme">
+        <option value="green">Green</option><option value="brown">Brown</option>
+        <option value="blue">Blue</option><option value="purple">Purple</option>
+      </select></div>
+  <div class="preference"><div><label for="appearance">Appearance</label><p>Follow the system or choose a light or dark interface.</p></div><select id="appearance"><option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option></select></div>
+  <div class="preference"><div><label for="reduced-motion">Reduced motion</label><p>Keep transitions still. The system preference also applies.</p></div><label class="toggle"><input id="reduced-motion" type="checkbox"><span class="switch" aria-hidden="true"></span></label></div>
+  <div class="preference"><div><label for="coordinates">Board coordinates</label><p>Show the files and ranks around the board.</p></div><label class="toggle"><input id="coordinates" type="checkbox" checked><span class="switch" aria-hidden="true"></span></label></div>
+  <div class="preference"><div><label for="suggestions">Move arrows</label><p>Show Stockfish’s suggested move on the board.</p></div><label class="toggle"><input id="suggestions" type="checkbox" checked><span class="switch" aria-hidden="true"></span></label></div>
+</section>
+<footer id="app-footer"><p id="board-help"></p></footer>
 <script src="app.js" defer></script>
 </body>
 </html>

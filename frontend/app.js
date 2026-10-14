@@ -15,7 +15,12 @@ const BASE = '<path d="M11.5 40v-2.5c0-1.9 1.4-3.3 3.3-3.3h15.4c1.9 0 3.3 1.4 3.
 let grid = Array(64).fill(''), flip = false, tool = null, drag = null, ghost = null;
 let turn = 'w', ep = '-', cr = new Set('KQkq'), sfSide = null, sug = null;
 let activeView = 'analyzer', legalRules = false, allowCastling = true, movePending = false;
-let playMode = 'normal';
+let playMode = 'normal', elo = 1600, fullStrength = true, settingsOpen = false;
+let preferences = { theme: 'green', appearance: 'system', reducedMotion: false, coordinates: true, suggestions: true };
+try { const saved = JSON.parse(localStorage.getItem('chessbot.preferences')); if (saved && typeof saved === 'object') {
+  for (const key of ['theme', 'appearance']) if (typeof saved[key] === 'string') preferences[key] = saved[key];
+  for (const key of ['reducedMotion', 'coordinates', 'suggestions']) if (typeof saved[key] === 'boolean') preferences[key] = saved[key];
+} } catch { /* I use defaults if saved preferences are unavailable. */ }
 const sessions = { analyzer: null, training: null };
 let halfmoves = 0, fullmoves = 1, history = [], gameState = null, stateFen = '';
 
@@ -156,11 +161,27 @@ $('#start').onclick = () => { load(START); changed(); };
 $('#clear').onclick = () => { if (legalRules) return; grid = Array(64).fill(''); ep = '-'; changed(true); };
 $('#flip').onclick = () => { flip = !flip; render(); };
 $('#erase').onclick = () => { if (legalRules) return; tool = tool === 'x' ? null : 'x'; syncTool(); };
-$('#theme').onchange = e => {
-  const [l, d] = THEMES[e.target.value];
-  document.documentElement.style.setProperty('--l', l);
-  document.documentElement.style.setProperty('--d', d);
-};
+function applyPreferences() {
+  if (!THEMES[preferences.theme]) preferences.theme = 'green';
+  if (!['system', 'light', 'dark'].includes(preferences.appearance)) preferences.appearance = 'system';
+  const root = document.documentElement;
+  const [l, d] = THEMES[preferences.theme];
+  root.style.setProperty('--l', l); root.style.setProperty('--d', d);
+  root.dataset.theme = preferences.appearance;
+  root.dataset.reducedMotion = String(preferences.reducedMotion);
+  root.dataset.coordinates = String(preferences.coordinates);
+  $('#theme').value = preferences.theme; $('#appearance').value = preferences.appearance;
+  $('#reduced-motion').checked = preferences.reducedMotion;
+  $('#coordinates').checked = preferences.coordinates; $('#suggestions').checked = preferences.suggestions;
+  drawArrow();
+}
+for (const [id, key] of Object.entries({theme:'theme', appearance:'appearance', 'reduced-motion':'reducedMotion', coordinates:'coordinates', suggestions:'suggestions'})) {
+  $('#' + id).onchange = event => {
+    preferences[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    applyPreferences();
+    try { localStorage.setItem('chessbot.preferences', JSON.stringify(preferences)); } catch { /* I keep preferences for this session. */ }
+  };
+}
 fen.addEventListener('change', async () => {
   if (movePending) { fen.value = toFen(); return; }
   const before = toFen();
@@ -309,7 +330,7 @@ function validate() {
 
 function drawArrow() {
   const svg = $('#arrows');
-  if (!sug) { svg.innerHTML = ''; return; }
+  if (!sug || !preferences.suggestions) { svg.innerHTML = ''; return; }
   const pt = i => { const r = i >> 3, c = i & 7; return [(flip ? 7 - c : c) + .5, (flip ? 7 - r : r) + .5]; };
   const [x1, y1] = pt(sug.a), [x2, y2] = pt(sug.b);
   const L = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / L, uy = (y2 - y1) / L;
@@ -327,7 +348,7 @@ function syncUI() {
 // every position change clears the old suggestion and only searches when it is stockfish's turn
 function paintGameStatus(result) {
   const box = $('#game-status');
-  box.textContent = result.message;
+  box.textContent = result.kind === 'playing' && !sfSide && !both ? 'Pick a side for Stockfish to play' : result.message;
   box.dataset.kind = result.kind;
   board.querySelectorAll('.check').forEach(square => {
     square.classList.remove('check');
@@ -342,6 +363,7 @@ function paintGameStatus(result) {
 
 async function schedule() {
   clearTimeout(timer);
+  if (activeView === 'training') both = false;
   const my = ++token;
   cancellation = invoke('engine_cancel').catch(() => {});
   sug = null; $('#line').textContent = ''; $('#evf').style.height = '50%';
@@ -360,7 +382,8 @@ async function schedule() {
     paintGameStatus({ kind: 'invalid', message: String(error), checked_square: null });
     return status('Could not check position');
   }
-  if (!both && !sfSide) status('Pick a side for Stockfish to play');
+  if (settingsOpen) return status('');
+  if (!both && !sfSide) status('');
   else if (!both && turn !== sfSide) status(`Waiting for ${name(turn)} to move...`);
   else if (crashed) status('Engine crashed - make sure the position is legal');
   else if (!ready) status('Engine loading...');
@@ -369,7 +392,7 @@ async function schedule() {
 
 async function search(my) {
   await cancellation;
-  if (my !== token) return;
+  if (my !== token || settingsOpen) return;
   const bad = validate();
   if (bad) return status(bad);
   status(`Thinking for ${name(turn)}...`);
@@ -390,7 +413,7 @@ async function search(my) {
     }
   };
   try {
-    await invoke('engine_analyse', { fen: toFen(), depth, onLine, castling: allowCastling, mode: activeView === 'training' ? playMode : 'normal', history });
+    await invoke('engine_analyse', { fen: toFen(), depth, onLine, castling: allowCastling, mode: activeView === 'analyzer' ? playMode : 'normal', elo: fullStrength ? null : elo, history });
   } catch (error) {
     if (my !== token) return;
     crashed = true;
@@ -412,7 +435,7 @@ function show(best, info, live) {
     else { txt = (v > 0 ? '+' : '-') + 'M' + Math.abs(v); pct = v > 0 ? 100 : 0; }
   }
   $('#evf').style.height = pct + '%';
-  const label = activeView === 'training' && playMode !== 'normal' ? 'Suggested move' : 'Best move';
+  const label = (activeView === 'analyzer' && playMode !== 'normal') || !fullStrength ? 'Suggested move' : 'Best move';
   status(live ? `Thinking for ${name(turn)}... depth ${live}` : `${label} for ${name(turn)}: ${best.slice(0, 2)}-${best.slice(2)}`);
   $('#line').textContent = `eval ${txt}  ${pv}`;
   drawArrow();
@@ -421,7 +444,7 @@ function show(best, info, live) {
 
 // auto-play: plays the suggestion, with caps so a both-sides game can't run forever
 async function playSug(my, mv) {
-  if (my !== token || !sug) return;
+  if (my !== token || !sug || settingsOpen) return;
   if (plies >= 200) { sug = null; drawArrow(); return status('Stopped after 200 auto moves - change the position to continue'); }
   const position = toFen();
   try {
@@ -509,7 +532,7 @@ $('#depth-slider').addEventListener('input', event => {
   syncDepth(); schedule();
 });
 document.querySelectorAll('[data-flag]').forEach(b => b.onclick = () => {
-  if (b.dataset.flag === 'auto') auto = !auto; else both = !both;
+  if (b.dataset.flag === 'auto') auto = !auto; else { if (activeView === 'training') return; both = !both; }
   plies = 0; schedule();
 });
 
@@ -539,14 +562,18 @@ async function manualMove(from, to) {
 
 function syncWorkspace() {
   const training = activeView === 'training';
-  $('.app-tabs').classList.toggle('training', training);
+  const page = settingsOpen ? 'settings' : activeView;
+  $('#workspace').hidden = settingsOpen; $('#settings').hidden = !settingsOpen;
   document.querySelectorAll('[data-view]').forEach(button => {
-    const selected = button.dataset.view === activeView;
+    const selected = button.dataset.view === page;
     button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1;
   });
   $('#workspace').setAttribute('aria-labelledby', training ? 'tab-training' : 'tab-analyzer');
   $('#workspace-heading').textContent = training ? 'Game Training' : 'Analyzer';
-  $('#training-modes').hidden = !training;
+  $('#playing-styles').hidden = training;
+  document.querySelector('[data-flag=both]').disabled = training;
+  if (training) both = false;
+  syncStrength();
   document.querySelectorAll('[data-mode]').forEach(button => {
     const selected = button.dataset.mode === playMode;
     button.classList.toggle('on', selected); button.setAttribute('aria-pressed', String(selected));
@@ -566,19 +593,28 @@ function syncWorkspace() {
 }
 
 function switchWorkspace(nextView) {
-  if (nextView === activeView || movePending) return;
+  if (movePending) return;
+  if (nextView === 'settings') {
+    if (drag) finish({}, true);
+    closeDepth(); settingsOpen = true; ++token; clearTimeout(timer);
+    cancellation = invoke('engine_cancel').catch(() => {});
+    syncWorkspace(); $('#board-help').textContent = 'Appearance and board preferences apply to both workspaces.';
+    return;
+  }
+  const wasSettings = settingsOpen; settingsOpen = false;
+  if (nextView === activeView) { if (wasSettings) { syncWorkspace(); schedule(); } return; }
   if (drag) finish({}, true);
   closeDepth();
-  sessions[activeView] = { fen: toFen(), history: history.slice(), sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth };
+  sessions[activeView] = { fen: toFen(), history: history.slice(), sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength, playMode };
   activeView = nextView;
   const next = sessions[nextView];
   if (next) {
     load(next.fen); history = next.history.slice();
-    ({ sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth } = next);
+    ({ sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength, playMode } = next);
   } else {
     load(START); history = []; plies = 0; flip = false;
     sfSide = 'b'; auto = true; both = false; legalRules = true; allowCastling = true;
-    depth = 12; depthPreset = '12'; customDepth = 24;
+    depth = 12; depthPreset = '12'; customDepth = 24; elo = 1600; fullStrength = true; playMode = 'normal';
   }
   tool = null; crashed = false; sug = null; gameState = null; moveNotice();
   syncDepth(); syncWorkspace(); render(); syncTool(); schedule();
@@ -588,8 +624,11 @@ document.querySelectorAll('[data-view]').forEach(button => {
   button.onclick = () => switchWorkspace(button.dataset.view);
   button.addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault(); const target = event.key === 'Home' ? 'analyzer' : event.key === 'End' ? 'training' : activeView === 'analyzer' ? 'training' : 'analyzer';
-    switchWorkspace(target); document.querySelector('[data-view="' + target + '"]').focus();
+    event.preventDefault();
+    const tabs = [...document.querySelectorAll('[data-view]')];
+    const index = tabs.indexOf(button);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    switchWorkspace(tabs[next].dataset.view); tabs[next].focus();
   });
 });
 $('#legal-rules').onchange = event => {
@@ -599,6 +638,14 @@ $('#allow-castling').onchange = event => { allowCastling = event.target.checked;
 document.querySelectorAll('[data-mode]').forEach(button => button.onclick = () => {
   playMode = button.dataset.mode; syncWorkspace(); schedule();
 });
+
+function syncStrength() {
+  $('#full-strength').checked = fullStrength; $('#elo').disabled = fullStrength;
+  $('#elo-controls').hidden = fullStrength;
+  $('#elo').value = elo; $('#elo-value').textContent = fullStrength ? 'Unlimited' : `${elo} Elo`;
+}
+$('#full-strength').onchange = event => { fullStrength = event.target.checked; syncStrength(); schedule(); };
+$('#elo').oninput = event => { elo = +event.target.value; syncStrength(); schedule(); };
 
 const appWindow = window.__TAURI__.window.getCurrentWindow();
 $('#window-minimize').onclick = () => appWindow.minimize().catch(error => status(String(error)));
@@ -613,4 +660,4 @@ async function syncWindowIcon() {
 appWindow.onResized(() => syncWindowIcon().catch(() => {}));
 syncWindowIcon().catch(() => {});
 
-load(START); syncWorkspace(); render(); boot(); schedule();
+load(START); applyPreferences(); syncWorkspace(); render(); boot(); schedule();

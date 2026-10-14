@@ -7,8 +7,6 @@ body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 "Segoe UI",sy
 .app-tabs{position:fixed;top:46px;left:0;right:0;z-index:15;height:49px;background:var(--panel);display:flex;justify-content:center;border-bottom:1px solid color-mix(in srgb,var(--muted) 18%,transparent)}
 .app-tabs button{width:180px;background:transparent;border:0;font:inherit;font-weight:600;color:var(--muted);cursor:pointer}
 .app-tabs button[aria-selected="true"]{color:var(--text)}
-.tab-underline{position:absolute;bottom:0;left:calc(50% - 180px);width:180px;height:3px;background:var(--accent);transform:translateX(0);transition:transform 200ms cubic-bezier(.22,1,.36,1)}
-.app-tabs.training .tab-underline{transform:translateX(180px)}
 .rules-row{display:flex;flex-wrap:wrap;gap:10px 16px;margin-bottom:12px}
 .toggle{display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;position:relative}
 .toggle input{position:absolute;opacity:0;width:32px;height:20px;margin:0;cursor:pointer}
@@ -103,4 +101,42 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #line{margin:4px 0 0;color:var(--muted);font:13px Consolas,monospace;overflow-wrap:anywhere;min-height:1.4em}
 @media(max-width:900px){main{grid-template-columns:1fr}.board-area{width:100%}}
 @media(prefers-reduced-motion:reduce){.ev i{transition:none}}
-@media(prefers-reduced-motion:reduce){.tab-underline,.switch::after,.window-controls button{transition:none}}
+@media(prefers-reduced-motion:reduce){.switch::after,.window-controls button{transition:none}}
+
+/* I keep the board and controls inside the available content area. */
+*,*::before,*::after{box-sizing:inherit}
+body{height:100dvh;overflow:hidden;padding:112px 24px 44px;display:block}
+main{width:100%;max-width:1560px;height:100%;padding:0;margin:auto;grid-template-columns:minmax(0,1fr) 424px;gap:24px}
+.board-area{width:min(100%,calc(100dvh - 170px + 24px))}
+aside{min-width:0;max-height:100%;overflow-x:hidden;padding-right:8px}
+aside>*{min-width:0}
+.card{margin-bottom:10px;padding:10px 12px}
+.lbl{margin-top:9px}
+#pal{margin:10px 0;padding:5px;gap:3px}
+.pb{max-height:52px}
+.bar{gap:6px;margin-bottom:10px}.bar .act{flex:1;padding:8px 9px;white-space:nowrap}
+.row{min-width:0}.row .act{flex-shrink:0}
+#status:empty,#line:empty,#mode-explanation:empty{display:none}
+#status{margin-top:10px}#line{min-height:0}
+#training-modes .hint{font-size:12px;margin-top:7px}
+.strength-row{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:13px}
+#elo{width:100%;margin:4px 0 0;accent-color:var(--accent)}
+#elo-value{font-variant-numeric:tabular-nums;color:var(--muted)}
+#app-footer{position:fixed;inset:auto 0 0;background:var(--panel);border-top:1px solid color-mix(in srgb,var(--muted) 18%,transparent);padding:10px 24px;min-height:42px}
+#board-help{margin:0;color:var(--muted);font-size:12px}
+.app-tabs button{position:relative}
+.app-tabs button::after{content:"";position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--accent);transform:scaleX(0);transition:transform 200ms cubic-bezier(.22,1,.36,1)}
+.app-tabs button:hover::after,.app-tabs button:focus-visible::after{transform:scaleX(.25)}
+.app-tabs button[aria-selected="true"]::after{transform:scaleX(1)}
+#settings{max-width:800px;margin:12px auto;height:100%;overflow-y:auto;padding:0 12px 16px}
+.settings-intro{color:var(--muted);margin:0 0 28px}
+.preference{display:flex;align-items:center;justify-content:space-between;gap:32px;padding:20px 0;border-bottom:1px solid color-mix(in srgb,var(--muted) 22%,transparent)}
+.preference p{color:var(--muted);font-size:13px;margin:5px 0 0}.preference select{min-width:130px}
+.preference>div>label{font-weight:600}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+:root[data-coordinates="false"] .sq b{display:none}
+:root[data-reduced-motion="true"] *, :root[data-reduced-motion="true"] *::after{transition:none!important;animation:none!important}
+@media(prefers-reduced-motion:reduce){.app-tabs button::after{transition:none}}
+
+aside h1{margin-bottom:8px}.rules-row{margin-bottom:10px}
+.pb{max-height:48px}
