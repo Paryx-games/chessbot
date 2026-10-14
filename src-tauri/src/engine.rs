@@ -1,12 +1,8 @@
-use crate::modes::{Candidate, PlayMode};
 use shakmaty::{fen::Fen, CastlingMode, Chess};
-use std::collections::BTreeMap;
 
 pub struct SearchOptions<'a> {
     pub fen: &'a str,
     pub depth: u8,
-    pub mode: PlayMode,
-    pub history: &'a [String],
     pub elo: Option<u16>,
 }
 use std::{
@@ -126,8 +122,7 @@ impl Engine {
             SearchOptions {
                 fen,
                 depth,
-                mode: PlayMode::Normal,
-                history: &[],
+
                 elo: None,
             },
             generation,
@@ -143,13 +138,7 @@ impl Engine {
         latest: &AtomicU64,
         mut emit: impl FnMut(&str),
     ) -> Result<(), String> {
-        let SearchOptions {
-            fen,
-            depth,
-            mode,
-            history,
-            elo,
-        } = options;
+        let SearchOptions { fen, depth, elo } = options;
         validate_fen(fen)?;
         if !(1..=48).contains(&depth) {
             return Err("Depth must be between 1 and 48".into());
@@ -168,21 +157,12 @@ impl Engine {
         if let Some(elo) = elo {
             self.send(&format!("setoption name UCI_Elo value {elo}"))?;
         }
-        let styled = mode != PlayMode::Normal && elo.is_none();
-        let variations = if !styled {
-            1
-        } else {
-            crate::rules::legal_moves(fen, true)?.len().clamp(1, 256)
-        };
-        self.send(&format!("setoption name MultiPV value {variations}"))?;
+        self.send("setoption name MultiPV value 1")?;
         self.send(&format!("position fen {fen}"))?;
         self.send(&format!("go depth {depth}"))?;
         // Depth-limited searches may take a long time; only cancellation has a timeout.
         let mut deadline = None;
         let mut stopped = false;
-        let mut frame = BTreeMap::new();
-        let mut frame_depth = 0;
-        let mut complete = Vec::new();
         loop {
             if !stopped && latest.load(Ordering::SeqCst) != generation {
                 self.send("stop")?;
@@ -195,40 +175,7 @@ impl Engine {
             match self.output.recv_timeout(Duration::from_millis(30)) {
                 Ok(line) => {
                     if !stopped && latest.load(Ordering::SeqCst) == generation {
-                        if line.starts_with("bestmove ") && styled {
-                            let fallback = line.split_whitespace().nth(1).unwrap_or("(none)");
-                            let (selected, reason) =
-                                crate::modes::choose(mode, fen, history, &complete, fallback);
-                            if latest.load(Ordering::SeqCst) == generation {
-                                if let Some(candidate) =
-                                    complete.iter().find(|candidate| candidate.uci == selected)
-                                {
-                                    emit(&candidate.info.replace(
-                                        &format!(" multipv {} ", candidate.index),
-                                        " multipv 1 ",
-                                    ));
-                                }
-                                emit(&format!("modeinfo {reason}"));
-                                emit(&format!("bestmove {selected}"));
-                            }
-                        } else {
-                            if let Some(candidate) = Candidate::parse(&line) {
-                                if candidate.depth > frame_depth {
-                                    frame.clear();
-                                    frame_depth = candidate.depth;
-                                }
-                                if candidate.depth == frame_depth {
-                                    frame.insert(candidate.index, candidate);
-                                    if frame.len() == variations {
-                                        complete = frame.values().cloned().collect();
-                                    }
-                                }
-                            }
-                            if line.starts_with("bestmove ") && elo.is_some() {
-                                emit("modeinfo Playing at limited Elo; Stockfish’s strength selection takes priority.");
-                            }
-                            emit(&line);
-                        }
+                        emit(&line);
                     }
                     if line.starts_with("bestmove ") {
                         return Ok(());
@@ -246,104 +193,6 @@ mod tests {
     use super::*;
     const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     #[test]
-    fn playful_uses_evaluated_alternatives_instead_of_immediate_mate() {
-        use shakmaty::Position;
-        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("binaries/stockfish-x86_64-pc-windows-msvc.exe");
-        let mut engine = Engine::start(&path).unwrap();
-        let latest = AtomicU64::new(1);
-        let fen = "7k/8/5KQ1/8/8/8/8/8 w - - 0 1";
-        let mut best = String::new();
-        let mut explanation = String::new();
-        engine
-            .analyse_options(
-                SearchOptions {
-                    fen,
-                    depth: 5,
-                    mode: PlayMode::Playful,
-                    history: &[],
-                    elo: None,
-                },
-                1,
-                &latest,
-                |line| {
-                    if let Some(mv) = line.strip_prefix("bestmove ") {
-                        best = mv.into();
-                    }
-                    if let Some(reason) = line.strip_prefix("modeinfo ") {
-                        explanation = reason.into();
-                    }
-                },
-            )
-            .unwrap();
-        let next = crate::rules::make_move(fen, &best, true).unwrap();
-        assert!(!crate::rules::position(&next).unwrap().is_checkmate());
-        assert!(explanation.contains("Delaying mate"));
-    }
-    #[test]
-    fn queen_collector_uses_real_analysis_and_normal_search_recovers() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("binaries/stockfish-x86_64-pc-windows-msvc.exe");
-        let mut engine = Engine::start(&path).unwrap();
-        let latest = AtomicU64::new(1);
-        let fen = "7k/P7/8/8/8/8/8/K2Q4 w - - 0 1";
-        let mut best = String::new();
-        let mut explanation = false;
-        engine
-            .analyse_options(
-                SearchOptions {
-                    fen,
-                    depth: 5,
-                    mode: PlayMode::QueenCollector,
-                    history: &[],
-                    elo: None,
-                },
-                1,
-                &latest,
-                |line| {
-                    if let Some(mv) = line.strip_prefix("bestmove ") {
-                        best = mv.to_string();
-                    }
-                    if line.starts_with("modeinfo ") {
-                        explanation = true;
-                    }
-                },
-            )
-            .unwrap();
-        assert_eq!(best, "a7a8q");
-        assert!(explanation);
-        crate::rules::make_move(fen, &best, true).unwrap();
-        std::thread::scope(|scope| {
-            scope.spawn(|| {
-                std::thread::sleep(Duration::from_millis(80));
-                latest.store(2, Ordering::SeqCst);
-            });
-            engine
-                .analyse_options(
-                    SearchOptions {
-                        fen: START,
-                        depth: 48,
-                        mode: PlayMode::QueenCollector,
-                        history: &[],
-                        elo: None,
-                    },
-                    1,
-                    &latest,
-                    |_| {},
-                )
-                .unwrap();
-        });
-        best.clear();
-        engine
-            .analyse(START, 4, 2, &latest, |line| {
-                if let Some(mv) = line.strip_prefix("bestmove ") {
-                    best = mv.split_whitespace().next().unwrap().to_string();
-                }
-            })
-            .unwrap();
-        crate::rules::make_move(START, &best, true).unwrap();
-    }
-    #[test]
     fn elo_limits_validate_cancel_and_reset_between_searches() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("binaries/stockfish-x86_64-pc-windows-msvc.exe");
@@ -355,8 +204,6 @@ mod tests {
                     SearchOptions {
                         fen: START,
                         depth: 4,
-                        mode: PlayMode::Normal,
-                        history: &[],
                         elo
                     },
                     1,
@@ -367,14 +214,11 @@ mod tests {
         }
         for elo in [Some(1320), Some(3190), None] {
             let mut best = String::new();
-            let mut limited = false;
             engine
                 .analyse_options(
                     SearchOptions {
                         fen: START,
                         depth: 4,
-                        mode: PlayMode::Playful,
-                        history: &[],
                         elo,
                     },
                     1,
@@ -383,11 +227,9 @@ mod tests {
                         if let Some(mv) = line.strip_prefix("bestmove ") {
                             best = mv.split_whitespace().next().unwrap().into();
                         }
-                        limited |= line.contains("Playing at limited Elo");
                     },
                 )
                 .unwrap();
-            assert_eq!(limited, elo.is_some());
             crate::rules::make_move(START, &best, true).unwrap();
         }
         std::thread::scope(|scope| {
@@ -400,8 +242,6 @@ mod tests {
                     SearchOptions {
                         fen: START,
                         depth: 48,
-                        mode: PlayMode::Normal,
-                        history: &[],
                         elo: Some(1600),
                     },
                     1,

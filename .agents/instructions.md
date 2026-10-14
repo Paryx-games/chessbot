@@ -11,7 +11,6 @@ I'm building a Windows x64 chess position editor with Tauri 2, a Rust backend, a
 - `src-tauri/src/engine.rs`: Stockfish process, UCI communication, validation, and cancellation.
 - `src-tauri/src/game_status.rs`: check, checkmate, stalemate, and draw detection.
 - `src-tauri/src/rules.rs`: legal moves, canonical move application, and castling.
-- `src-tauri/src/modes.rs`: evaluated move selection for training styles.
 - `scripts/`: engine download, version checks, release packaging, and release notes.
 - `.github/`: CI selection, checks, reporting, and release workflows.
 - `assets/branding/` and `src-tauri/icons/`: branding sources and application icons.

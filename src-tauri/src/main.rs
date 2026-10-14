@@ -2,7 +2,6 @@
 mod config;
 mod engine;
 mod game_status;
-mod modes;
 mod rules;
 use std::{
     path::PathBuf,
@@ -88,26 +87,16 @@ fn make_move(fen: String, uci: String, castling: bool) -> Result<String, String>
 }
 
 #[tauri::command]
-#[allow(clippy::too_many_arguments)]
 async fn engine_analyse(
     fen: String,
     depth: u8,
     on_line: Channel<String>,
     castling: Option<bool>,
-    mode: Option<modes::PlayMode>,
-    history: Option<Vec<String>>,
     elo: Option<u16>,
     state: State<'_, Backend>,
 ) -> Result<(), String> {
     engine::validate_fen(&fen)?;
     let fen = rules::analysis_fen(&fen, castling.unwrap_or(true));
-    let history = history
-        .unwrap_or_default()
-        .iter()
-        .rev()
-        .take(1000)
-        .map(|fen| rules::analysis_fen(fen, castling.unwrap_or(true)))
-        .collect::<Vec<_>>();
     let state = state.inner().clone();
     let generation = state.latest.fetch_add(1, Ordering::SeqCst) + 1;
     tauri::async_runtime::spawn_blocking(move || {
@@ -122,8 +111,6 @@ async fn engine_analyse(
             engine::SearchOptions {
                 fen: &fen,
                 depth,
-                mode: mode.unwrap_or_default(),
-                history: &history,
                 elo,
             },
             generation,

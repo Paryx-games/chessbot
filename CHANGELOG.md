@@ -17,6 +17,7 @@ I record changes here and use the versioning described in [VERSIONING.md](VERSIO
 
 ### Changed
 
+- Removed playing modes and their saved values; full strength and the Elo slider remain available in both workspaces.
 - Replaced em dashes in game-status messages with standard hyphens.
 - Renamed the app, executable, and installer to Chessbot.
 - Matched CI and release job structure with other rust checks I've made, trusted PR labels, live failure reporting, build provenance, generated release notes, and best-effort download scans.

@@ -15,10 +15,10 @@ const BASE = '<path d="M11.5 40v-2.5c0-1.9 1.4-3.3 3.3-3.3h15.4c1.9 0 3.3 1.4 3.
 let grid = Array(64).fill(''), flip = false, tool = null, drag = null, ghost = null;
 let turn = 'w', ep = '-', cr = new Set('KQkq'), sfSide = null, sug = null;
 let activeView = 'analyzer', legalRules = false, allowCastling = true, movePending = false;
-let playMode = 'normal', elo = 1600, fullStrength = true, settingsOpen = false;
+let elo = 1600, fullStrength = true, settingsOpen = false;
 let preferences = { theme: 'green', appearance: 'system', reducedMotion: false, coordinates: true, suggestions: true, soundEffects: true };
 let saveEnabled = true;
-const saveChoices = Object.fromEntries(['depth', 'mode', 'strength', 'side', 'rules', 'automation', 'position', 'orientation', 'workspace'].map(key => [key, true]));
+const saveChoices = Object.fromEntries(['depth', 'strength', 'side', 'rules', 'automation', 'position', 'orientation', 'workspace'].map(key => [key, true]));
 let configReady = false, saveTimer = null, saveChain = Promise.resolve(), closingWindow = false;
 const sessions = { analyzer: null, training: null };
 let halfmoves = 0, fullmoves = 1, history = [], gameState = null, stateFen = '';
@@ -386,7 +386,6 @@ async function schedule() {
   const my = ++token;
   cancellation = invoke('engine_cancel').catch(() => {});
   sug = null; $('#line').textContent = ''; $('#evf').style.height = '50%';
-  $('#mode-explanation').textContent = '';
   syncUI(); drawArrow();
   const currentFen = toFen();
   paintGameStatus({ kind: 'playing', message: 'Checking position…', checked_square: null });
@@ -426,14 +425,13 @@ async function search(my) {
       const best = line.split(' pv ')[1]?.split(' ')[0];
       const currentDepth = +(line.match(/\bdepth (\d+)/)?.[1] || 1);
       if (best) show(best, info, currentDepth);
-    } else if (line.startsWith('modeinfo ')) {
-      $('#mode-explanation').textContent = line.slice(9);
+
     } else if (line.startsWith('bestmove ')) {
       show(line.split(' ')[1], info, 0);
     }
   };
   try {
-    await invoke('engine_analyse', { fen: toFen(), depth, onLine, castling: allowCastling, mode: activeView === 'analyzer' ? playMode : 'normal', elo: fullStrength ? null : elo, history });
+    await invoke('engine_analyse', { fen: toFen(), depth, onLine, castling: allowCastling, elo: fullStrength ? null : elo });
   } catch (error) {
     if (my !== token) return;
     crashed = true;
@@ -455,7 +453,7 @@ function show(best, info, live) {
     else { txt = (v > 0 ? '+' : '-') + 'M' + Math.abs(v); pct = v > 0 ? 100 : 0; }
   }
   $('#evf').style.height = pct + '%';
-  const label = (activeView === 'analyzer' && playMode !== 'normal') || !fullStrength ? 'Suggested move' : 'Best move';
+  const label = !fullStrength ? 'Suggested move' : 'Best move';
   status(live ? `Thinking for ${name(turn)}... depth ${live}` : `${label} for ${name(turn)}: ${best.slice(0, 2)}-${best.slice(2)}`);
   $('#line').textContent = `eval ${txt}  ${pv}`;
   drawArrow();
@@ -591,19 +589,9 @@ function syncWorkspace() {
   });
   $('#workspace').setAttribute('aria-labelledby', training ? 'tab-training' : 'tab-analyzer');
   $('#workspace-heading').textContent = training ? 'Game Training' : 'Analyzer';
-  $('#playing-styles').hidden = training;
   document.querySelector('[data-flag=both]').disabled = training;
   if (training) both = false;
   syncStrength();
-  document.querySelectorAll('[data-mode]').forEach(button => {
-    const selected = button.dataset.mode === playMode;
-    button.classList.toggle('on', selected); button.setAttribute('aria-pressed', String(selected));
-  });
-  $('#mode-description').textContent = playMode === 'queen_collector'
-    ? 'Build more queens while ahead. Compare evaluated legal moves, avoid immediate draw risks, and fall back to the strongest move when needed.'
-    : playMode === 'playful'
-      ? 'Keep a strong position while delaying mate. Prefer safe alternatives and avoid immediate draw risks; take the strongest move when needed.'
-      : 'Stockfish chooses its strongest evaluated move.';
   $('#legal-rules').checked = legalRules; $('#allow-castling').checked = allowCastling;
   pal.hidden = legalRules;
   $('#clear').disabled = legalRules; $('#erase').disabled = legalRules;
@@ -654,10 +642,6 @@ $('#legal-rules').onchange = event => {
   legalRules = event.target.checked; tool = null; moveNotice(); syncWorkspace(); syncTool(); schedule();
 };
 $('#allow-castling').onchange = event => { allowCastling = event.target.checked; moveNotice(); schedule(); };
-document.querySelectorAll('[data-mode]').forEach(button => button.onclick = () => {
-  playMode = button.dataset.mode; syncWorkspace(); schedule();
-});
-
 function syncStrength() {
   $('#full-strength').checked = fullStrength; $('#elo').disabled = fullStrength;
   $('#elo-controls').hidden = fullStrength;
@@ -667,15 +651,15 @@ $('#full-strength').onchange = event => { fullStrength = event.target.checked; s
 $('#elo').oninput = event => { elo = +event.target.value; syncStrength(); schedule(); };
 
 function captureWorkspace() {
-  return { fen: toFen(), history: history.slice(-1000), sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength, playMode };
+  return { fen: toFen(), history: history.slice(-1000), sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength };
 }
 function defaultWorkspace(view) {
   const training = view === 'training';
-  return { fen: START, history: [], sfSide: training ? 'b' : null, auto: training, both: false, legalRules: training, allowCastling: true, flip: false, plies: 0, depth: 12, depthPreset: '12', customDepth: 24, elo: 1600, fullStrength: true, playMode: 'normal' };
+  return { fen: START, history: [], sfSide: training ? 'b' : null, auto: training, both: false, legalRules: training, allowCastling: true, flip: false, plies: 0, depth: 12, depthPreset: '12', customDepth: 24, elo: 1600, fullStrength: true };
 }
 function restoreWorkspace(next) {
   load(next.fen); history = next.history.slice();
-  ({ sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength, playMode } = next);
+  ({ sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth, elo, fullStrength } = next);
   if (activeView === 'training') both = false;
 }
 function decodeWorkspace(values, view) {

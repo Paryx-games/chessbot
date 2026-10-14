@@ -74,8 +74,6 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .card button.act.on{background:var(--accent);color:#fff}
 .lbl{color:var(--muted);font-size:13px;margin:12px 0 5px}.lbl:first-child{margin-top:0}
 .seg{display:flex;gap:6px}.seg .act{flex:1;padding:8px 6px}
-.mode-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
-.mode-controls .act{font-size:13px;padding:8px 4px}
 [hidden]{display:none!important}
 .depth-picker{position:relative}
 .depth-trigger{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left}
@@ -116,9 +114,9 @@ aside>*{min-width:0}
 .pb{max-height:52px}
 .bar{gap:6px;margin-bottom:10px}.bar .act{flex:1;padding:8px 9px;white-space:nowrap}
 .row{min-width:0}.row .act{flex-shrink:0}
-#status:empty,#line:empty,#mode-explanation:empty{display:none}
+#status:empty,#line:empty{display:none}
 #status{margin-top:10px}#line{min-height:0}
-#training-modes .hint{font-size:12px;margin-top:7px}
+#engine-strength .hint{font-size:12px;margin-top:7px}
 .strength-row{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:13px}
 #elo{width:100%;margin:4px 0 0;accent-color:var(--accent)}
 #elo-value{font-variant-numeric:tabular-nums;color:var(--muted)}

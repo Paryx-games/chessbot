@@ -10,7 +10,6 @@ type Section = BTreeMap<String, String>;
 type Ini = BTreeMap<String, Section>;
 const GROUPS: &[&str] = &[
     "depth",
-    "mode",
     "strength",
     "side",
     "rules",
@@ -57,7 +56,6 @@ fn valid_setting(key: &str, value: &str) -> bool {
 fn group(key: &str) -> Option<&str> {
     match key {
         "depth" | "depthPreset" | "customDepth" => Some("depth"),
-        "playMode" => Some("mode"),
         "elo" | "fullStrength" => Some("strength"),
         "sfSide" => Some("side"),
         "legalRules" | "allowCastling" => Some("rules"),
@@ -72,7 +70,6 @@ fn valid_saved(key: &str, value: &str) -> bool {
     match key {
         "depth" | "customDepth" => number(value, 1, 48),
         "depthPreset" => matches!(value, "6" | "8" | "12" | "16" | "24" | "custom"),
-        "playMode" => matches!(value, "normal" | "queen_collector" | "playful"),
         "elo" => number(value, 1320, 3190),
         "sfSide" => matches!(value, "off" | "w" | "b"),
         "activeView" => matches!(value, "analyzer" | "training"),
@@ -194,7 +191,7 @@ mod tests {
     use super::*;
     #[test]
     fn ini_round_trip_filters_categories_and_keeps_settings() {
-        let mut config = Config { settings: parse("[settings]\ntheme=blue\nsave_depth=false\n").remove("settings").unwrap(), saved: parse("[analyzer]\ndepth=24\nplayMode=playful\nelo=1800\n[training]\nboth=true\n[app]\nactiveView=training\n"), ..Config::default() };
+        let mut config = Config { settings: parse("[settings]\ntheme=blue\nsave_depth=false\n").remove("settings").unwrap(), saved: parse("[analyzer]\ndepth=24\nelo=1800\n[training]\nboth=true\n[app]\nactiveView=training\n"), ..Config::default() };
         clean(&mut config);
         assert!(!config.saved["analyzer"].contains_key("depth"));
         assert_eq!(config.saved["analyzer"]["elo"], "1800");
@@ -207,7 +204,7 @@ mod tests {
     }
     #[test]
     fn invalid_and_unknown_values_do_not_restore() {
-        let mut config = Config { settings: parse("[settings]\ntheme=unknown\nsave_strength=oops\n").remove("settings").unwrap(), saved: parse("[analyzer]\ndepth=49\nelo=1\nplayMode=unknown\nfen=invalid\nauto=true\nunknown=test\n[untrusted]\nflip=true\n"), ..Config::default() };
+        let mut config = Config { settings: parse("[settings]\ntheme=unknown\nsave_strength=oops\n").remove("settings").unwrap(), saved: parse("[analyzer]\ndepth=49\nelo=1\nfen=invalid\nauto=true\nunknown=test\n[untrusted]\nflip=true\n"), ..Config::default() };
         clean(&mut config);
         assert!(config.settings.is_empty());
         assert_eq!(config.saved.len(), 1);
@@ -218,7 +215,7 @@ mod tests {
     }
     #[test]
     fn every_save_choice_filters_its_keys_on_load_and_save() {
-        let original = parse("[analyzer]\ndepth=16\ndepthPreset=16\ncustomDepth=24\nplayMode=playful\nelo=1800\nfullStrength=false\nsfSide=b\nlegalRules=true\nallowCastling=true\nauto=true\nboth=true\nfen=8/8/8/8/8/8/8/8 w - - 0 1\nhistory=[]\nplies=12\nflip=true\n[app]\nactiveView=training\n");
+        let original = parse("[analyzer]\ndepth=16\ndepthPreset=16\ncustomDepth=24\nelo=1800\nfullStrength=false\nsfSide=b\nlegalRules=true\nallowCastling=true\nauto=true\nboth=true\nfen=8/8/8/8/8/8/8/8 w - - 0 1\nhistory=[]\nplies=12\nflip=true\n[app]\nactiveView=training\n");
         for choice in GROUPS {
             let mut config = Config {
                 settings: BTreeMap::from([(format!("save_{choice}"), "false".into())]),
@@ -241,6 +238,23 @@ mod tests {
         };
         clean(&mut config);
         assert!(config.saved["analyzer"].contains_key("fen"));
+    }
+
+    #[test]
+    fn old_playing_mode_values_are_discarded_without_losing_strength() {
+        let mut config = Config {
+            settings: BTreeMap::from([
+                ("save_mode".into(), "true".into()),
+                ("save_strength".into(), "true".into()),
+            ]),
+            saved: parse("[analyzer]\nplayMode=playful\nelo=1800\nfullStrength=false\n"),
+            ..Config::default()
+        };
+        clean(&mut config);
+        assert!(!config.settings.contains_key("save_mode"));
+        assert!(!config.saved["analyzer"].contains_key("playMode"));
+        assert_eq!(config.saved["analyzer"]["elo"], "1800");
+        assert_eq!(config.saved["analyzer"]["fullStrength"], "false");
     }
 
     #[test]

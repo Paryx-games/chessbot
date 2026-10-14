@@ -34,23 +34,13 @@
     </div>
     <p id="move-notice" class="move-notice" role="alert" hidden></p>
     <div id="game-status" class="game-status" role="status" aria-live="polite" aria-atomic="true" data-kind="playing">White to move</div>
-    <div id="training-modes" class="card">
-      <div id="playing-styles">
-      <div class="lbl">Playing mode</div>
-      <div class="seg mode-controls">
-        <button class="act on" data-mode="normal" aria-pressed="true">Normal</button>
-        <button class="act" data-mode="queen_collector" aria-pressed="false">Queen Collector</button>
-        <button class="act" data-mode="playful" aria-pressed="false">Playful</button>
-      </div>
-      <p id="mode-description" class="hint">Stockfish chooses its strongest evaluated move.</p>
-      </div>
+    <div id="engine-strength" class="card">
       <div class="strength-row"><label class="toggle"><input id="full-strength" type="checkbox" checked><span class="switch" aria-hidden="true"></span>Full strength</label><output id="elo-value" for="elo">Unlimited</output></div>
       <div id="elo-controls" hidden>
       <label class="lbl" for="elo">Elo level</label>
       <input id="elo" type="range" min="1320" max="3190" step="10" value="1600" disabled aria-describedby="elo-help">
-      <p id="elo-help" class="hint">Estimated strength, 1320–3190 Elo. At limited Elo, strength takes priority over playing style.</p>
+      <p id="elo-help" class="hint">Estimated strength, 1320–3190 Elo. Lower values allow more inaccuracies; higher values play closer to Stockfish’s best moves.</p>
       </div>
-      <p id="mode-explanation" class="hint" aria-live="polite"></p>
     </div>
     <div class="card">
       <div class="lbl">Stockfish plays</div>
@@ -114,7 +104,6 @@
     <label class="save-master"><input id="save-enabled" type="checkbox" checked>Save workspace controls</label>
     <div class="save-grid">
       <label><input type="checkbox" data-save="depth" checked>Search depth</label>
-      <label><input type="checkbox" data-save="mode" checked>Playing mode</label>
       <label><input type="checkbox" data-save="strength" checked>Elo and full strength</label>
       <label><input type="checkbox" data-save="side" checked>Stockfish side</label>
       <label><input type="checkbox" data-save="rules" checked>Legal rules and castling</label>
