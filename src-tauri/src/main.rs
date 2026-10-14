@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod engine;
 mod game_status;
+mod modes;
 mod rules;
 use std::{
     path::PathBuf,
@@ -91,10 +92,19 @@ async fn engine_analyse(
     depth: u8,
     on_line: Channel<String>,
     castling: Option<bool>,
+    mode: Option<modes::PlayMode>,
+    history: Option<Vec<String>>,
     state: State<'_, Backend>,
 ) -> Result<(), String> {
     engine::validate_fen(&fen)?;
     let fen = rules::analysis_fen(&fen, castling.unwrap_or(true));
+    let history = history
+        .unwrap_or_default()
+        .iter()
+        .rev()
+        .take(1000)
+        .map(|fen| rules::analysis_fen(fen, castling.unwrap_or(true)))
+        .collect::<Vec<_>>();
     let state = state.inner().clone();
     let generation = state.latest.fetch_add(1, Ordering::SeqCst) + 1;
     tauri::async_runtime::spawn_blocking(move || {
@@ -105,15 +115,21 @@ async fn engine_analyse(
         if guard.is_none() {
             *guard = Some(engine::Engine::start(&state.path)?);
         }
-        let result =
-            guard
-                .as_mut()
-                .unwrap()
-                .analyse(&fen, depth, generation, &state.latest, |line| {
-                    if on_line.send(line.to_owned()).is_err() {
-                        state.latest.fetch_add(1, Ordering::SeqCst);
-                    }
-                });
+        let result = guard.as_mut().unwrap().analyse_options(
+            engine::SearchOptions {
+                fen: &fen,
+                depth,
+                mode: mode.unwrap_or_default(),
+                history: &history,
+            },
+            generation,
+            &state.latest,
+            |line| {
+                if on_line.send(line.to_owned()).is_err() {
+                    state.latest.fetch_add(1, Ordering::SeqCst);
+                }
+            },
+        );
         if result.is_err() {
             *guard = None;
         }
@@ -140,7 +156,7 @@ fn main() {
             make_move
         ])
         .build(tauri::generate_context!())
-        .expect("Failed to build Board Editor")
+        .expect("Failed to build Chessbot")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
                 let state = app.state::<Backend>();

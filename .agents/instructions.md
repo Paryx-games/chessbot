@@ -10,6 +10,8 @@ I'm building a Windows x64 chess position editor with Tauri 2, a Rust backend, a
 - `src-tauri/src/main.rs`: Tauri commands, shared engine state, and app lifecycle.
 - `src-tauri/src/engine.rs`: Stockfish process, UCI communication, validation, and cancellation.
 - `src-tauri/src/game_status.rs`: check, checkmate, stalemate, and draw detection.
+- `src-tauri/src/rules.rs`: legal moves, canonical move application, and castling.
+- `src-tauri/src/modes.rs`: evaluated move selection for training styles.
 - `scripts/`: engine download, version checks, release packaging, and release notes.
 - `.github/`: CI selection, checks, reporting, and release workflows.
 - `assets/branding/` and `src-tauri/icons/`: branding sources and application icons.
@@ -21,7 +23,7 @@ I'm building a Windows x64 chess position editor with Tauri 2, a Rust backend, a
 - Validate FEN positions and depth values before sending commands to Stockfish. Keep UCI input isolated from user-provided text.
 - Preserve cancellation when the position or depth changes. Old search output must never update the current board or trigger an automatic move.
 - Stop and clean up the sidecar when the app exits. A failed engine must not leave analysis permanently blocked.
-- Preserve free piece placement in the editor. Legal-move hints and engine validation must not silently turn editing into legal-moves-only play.
+- Preserve free piece placement when legal rules are off, and Rust-validated legal moves when they are on. Keep each workspace's position and rule controls independent.
 - Keep FEN counters, castling rights, en passant, promotion, and repetition history consistent when changing move handling.
 - Preserve the current layout, themes, vertical evaluation bar, keyboard controls, and 1310 × 925 minimum content size unless I ask to change them.
 - Don't upgrade Stockfish or add frameworks as incidental cleanup.

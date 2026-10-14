@@ -75,7 +75,7 @@
 
 ## About The Project
 
-I built Chessbot as a Windows chess position editor using Rust, Tauri, and native Stockfish. Set up a board, analyse moves, and watch the engine play one or both sides.
+I built Chessbot as a Windows chess position editor and training app using Rust, Tauri, and native Stockfish. Analyse a position in Analyzer, or play against different engine styles in Game Training.
 
 The interface lives in `frontend/`, with the Rust backend and desktop configuration in `src-tauri/`. I use plain HTML, CSS, and JavaScript for the board and controls, and keep engine execution and game-status checks in Rust.
 
@@ -125,6 +125,10 @@ No Rust or Node.js installation is required to run either download. I use those 
 ## Features
 
 - **Position Editing** - Drag pieces from the tray, move them around, or drop them off the board to remove them
+- **Two Workspaces** - Keep separate positions in Analyzer and Game Training, with animated green tab underlines
+- **Training Modes** - Use Normal for Stockfish's strongest move, or Queen Collector to work toward more promotions while preserving an advantage
+- **Chess Rules** - Toggle legal rules and castling; castling is validated in both workspaces, including rook movement and attacked squares
+- **Custom Title Bar** - Chessbot icon and name with green minimize/maximize controls and a red close hover
 - **FEN Positions** - Import a position and copy the current board as FEN
 - **Move Analysis** - Show Stockfish's suggested move, principal variation, and evaluation
 - **Vertical Evaluation Bar** - Read the position's evaluation beside the board, with orientation following the board flip
@@ -133,7 +137,9 @@ No Rust or Node.js installation is required to run either download. I use those 
 - **Game Status** - Show check, checkmate, stalemate, and supported draw conditions, with a red square around a checked king
 - **Board Appearance** - Flip the board and choose from four colour themes
 
-I keep board editing unrestricted, so pieces can be placed freely. Rust validates the resulting position before analysis. Manual promotion defaults to a queen; engine moves preserve Stockfish's selected promotion piece.
+Analyzer starts with free editing. Game Training starts with legal rules enabled and Stockfish playing Black automatically. When legal rules apply, moves must follow the side to move, king safety, and the other standard chess rules. I can load a valid FEN to train a different position, or turn legal rules off to edit freely. Manual promotion defaults to a queen; engine moves preserve Stockfish's selected promotion piece.
+
+Queen Collector compares Stockfish's evaluated legal alternatives at the selected depth. While clearly ahead, it favours pawn progress and queen promotions, rejects immediate stalemate/repetition/move-count draw risks, and can delay mate to keep collecting. If a safe collecting move isn't available, it falls back to Stockfish's strongest move. This is an evaluation-guided style, not a guarantee against every future draw; comparing more moves can also take longer than Normal mode.
 
 > [!IMPORTANT]
 > Draw detection uses the position and move history available in the app. Loading a FEN or editing the position resets repetition history. I label threefold repetition and fifty-move draws as claimable, and stop automation for those conditions too.
@@ -144,10 +150,10 @@ I keep board editing unrestricted, so pieces can be placed freely. Rust validate
 
 ## Usage
 
-1. **First launch** - Start with the normal opening position, or choose Clear to create a position from scratch.
-2. **Edit the board** - Drag pieces from the tray, drag them off the board to remove them, or right-click a square to clear it.
+1. **Choose a workspace** - Use Analyzer for position editing and analysis, or Game Training for a game with legal rules and automatic engine replies. Each tab keeps its own position and controls.
+2. **Edit or play** - With legal rules off, drag pieces from the tray, drag them off the board, or right-click to clear a square. With legal rules on, move the side to play. Allow castling controls castling in both tabs.
 3. **Set the position** - Select the side to move or paste a FEN into the position field.
-4. **Analyse** - Choose White or Black under Stockfish plays, then select a depth. I use 12 as the default; Custom reveals the 1–48 slider.
+4. **Analyse or train** - Choose White or Black under Stockfish plays, then select a depth. In Game Training, choose Normal or Queen Collector. I use depth 12 as the default; Custom reveals the 1–48 slider.
 5. **Automate** - Enable Auto-play moves to apply suggestions, or Both sides to watch Stockfish play itself.
 6. **Display and share** - Flip the board, select a theme, and use Copy FEN to share the current position.
 

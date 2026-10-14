@@ -1,4 +1,13 @@
+use crate::modes::{Candidate, PlayMode};
 use shakmaty::{fen::Fen, CastlingMode, Chess};
+use std::collections::BTreeMap;
+
+pub struct SearchOptions<'a> {
+    pub fen: &'a str,
+    pub depth: u8,
+    pub mode: PlayMode,
+    pub history: &'a [String],
+}
 use std::{
     io::{BufRead, BufReader, Write},
     path::Path,
@@ -103,14 +112,41 @@ impl Engine {
             .map_err(|e| format!("Stockfish stopped responding: {e}"))
     }
 
+    #[cfg(test)]
     pub fn analyse(
         &mut self,
         fen: &str,
         depth: u8,
         generation: u64,
         latest: &AtomicU64,
+        emit: impl FnMut(&str),
+    ) -> Result<(), String> {
+        self.analyse_options(
+            SearchOptions {
+                fen,
+                depth,
+                mode: PlayMode::Normal,
+                history: &[],
+            },
+            generation,
+            latest,
+            emit,
+        )
+    }
+
+    pub fn analyse_options(
+        &mut self,
+        options: SearchOptions<'_>,
+        generation: u64,
+        latest: &AtomicU64,
         mut emit: impl FnMut(&str),
     ) -> Result<(), String> {
+        let SearchOptions {
+            fen,
+            depth,
+            mode,
+            history,
+        } = options;
         validate_fen(fen)?;
         if !(1..=48).contains(&depth) {
             return Err("Depth must be between 1 and 48".into());
@@ -118,11 +154,20 @@ impl Engine {
         if latest.load(Ordering::SeqCst) != generation {
             return Ok(());
         }
+        let variations = if mode == PlayMode::Normal {
+            1
+        } else {
+            crate::rules::legal_moves(fen, true)?.len().clamp(1, 256)
+        };
+        self.send(&format!("setoption name MultiPV value {variations}"))?;
         self.send(&format!("position fen {fen}"))?;
         self.send(&format!("go depth {depth}"))?;
         // Depth-limited searches may take a long time; only cancellation has a timeout.
         let mut deadline = None;
         let mut stopped = false;
+        let mut frame = BTreeMap::new();
+        let mut frame_depth = 0;
+        let mut complete = Vec::new();
         loop {
             if !stopped && latest.load(Ordering::SeqCst) != generation {
                 self.send("stop")?;
@@ -135,7 +180,37 @@ impl Engine {
             match self.output.recv_timeout(Duration::from_millis(30)) {
                 Ok(line) => {
                     if !stopped && latest.load(Ordering::SeqCst) == generation {
-                        emit(&line);
+                        if line.starts_with("bestmove ") && mode != PlayMode::Normal {
+                            let fallback = line.split_whitespace().nth(1).unwrap_or("(none)");
+                            let (selected, reason) =
+                                crate::modes::choose(fen, history, &complete, fallback);
+                            if latest.load(Ordering::SeqCst) == generation {
+                                if let Some(candidate) =
+                                    complete.iter().find(|candidate| candidate.uci == selected)
+                                {
+                                    emit(&candidate.info.replace(
+                                        &format!(" multipv {} ", candidate.index),
+                                        " multipv 1 ",
+                                    ));
+                                }
+                                emit(&format!("modeinfo {reason}"));
+                                emit(&format!("bestmove {selected}"));
+                            }
+                        } else {
+                            if let Some(candidate) = Candidate::parse(&line) {
+                                if candidate.depth > frame_depth {
+                                    frame.clear();
+                                    frame_depth = candidate.depth;
+                                }
+                                if candidate.depth == frame_depth {
+                                    frame.insert(candidate.index, candidate);
+                                    if frame.len() == variations {
+                                        complete = frame.values().cloned().collect();
+                                    }
+                                }
+                            }
+                            emit(&line);
+                        }
                     }
                     if line.starts_with("bestmove ") {
                         return Ok(());
@@ -152,6 +227,67 @@ impl Engine {
 mod tests {
     use super::*;
     const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    #[test]
+    fn queen_collector_uses_real_analysis_and_normal_search_recovers() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("binaries/stockfish-x86_64-pc-windows-msvc.exe");
+        let mut engine = Engine::start(&path).unwrap();
+        let latest = AtomicU64::new(1);
+        let fen = "7k/P7/8/8/8/8/8/K2Q4 w - - 0 1";
+        let mut best = String::new();
+        let mut explanation = false;
+        engine
+            .analyse_options(
+                SearchOptions {
+                    fen,
+                    depth: 5,
+                    mode: PlayMode::QueenCollector,
+                    history: &[],
+                },
+                1,
+                &latest,
+                |line| {
+                    if let Some(mv) = line.strip_prefix("bestmove ") {
+                        best = mv.to_string();
+                    }
+                    if line.starts_with("modeinfo ") {
+                        explanation = true;
+                    }
+                },
+            )
+            .unwrap();
+        assert_eq!(best, "a7a8q");
+        assert!(explanation);
+        crate::rules::make_move(fen, &best, true).unwrap();
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                std::thread::sleep(Duration::from_millis(80));
+                latest.store(2, Ordering::SeqCst);
+            });
+            engine
+                .analyse_options(
+                    SearchOptions {
+                        fen: START,
+                        depth: 48,
+                        mode: PlayMode::QueenCollector,
+                        history: &[],
+                    },
+                    1,
+                    &latest,
+                    |_| {},
+                )
+                .unwrap();
+        });
+        best.clear();
+        engine
+            .analyse(START, 4, 2, &latest, |line| {
+                if let Some(mv) = line.strip_prefix("bestmove ") {
+                    best = mv.split_whitespace().next().unwrap().to_string();
+                }
+            })
+            .unwrap();
+        crate::rules::make_move(START, &best, true).unwrap();
+    }
     #[test]
     fn rejects_unsafe_positions() {
         assert!(validate_fen(START).is_ok());

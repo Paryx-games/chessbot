@@ -15,6 +15,7 @@ const BASE = '<path d="M11.5 40v-2.5c0-1.9 1.4-3.3 3.3-3.3h15.4c1.9 0 3.3 1.4 3.
 let grid = Array(64).fill(''), flip = false, tool = null, drag = null, ghost = null;
 let turn = 'w', ep = '-', cr = new Set('KQkq'), sfSide = null, sug = null;
 let activeView = 'analyzer', legalRules = false, allowCastling = true, movePending = false;
+let playMode = 'normal';
 const sessions = { analyzer: null, training: null };
 let halfmoves = 0, fullmoves = 1, history = [], gameState = null, stateFen = '';
 
@@ -344,6 +345,7 @@ async function schedule() {
   const my = ++token;
   cancellation = invoke('engine_cancel').catch(() => {});
   sug = null; $('#line').textContent = ''; $('#evf').style.height = '50%';
+  $('#mode-explanation').textContent = '';
   syncUI(); drawArrow();
   const currentFen = toFen();
   paintGameStatus({ kind: 'playing', message: 'Checking position…', checked_square: null });
@@ -376,16 +378,19 @@ async function search(my) {
   onLine.onmessage = line => {
     if (my !== token) return;
     if (/^info .* score .* pv /.test(line)) {
+      if (+(line.match(/\bmultipv (\d+)/)?.[1] || 1) !== 1) return;
       info = line;
       const best = line.split(' pv ')[1]?.split(' ')[0];
       const currentDepth = +(line.match(/\bdepth (\d+)/)?.[1] || 1);
       if (best) show(best, info, currentDepth);
+    } else if (line.startsWith('modeinfo ')) {
+      $('#mode-explanation').textContent = line.slice(9);
     } else if (line.startsWith('bestmove ')) {
       show(line.split(' ')[1], info, 0);
     }
   };
   try {
-    await invoke('engine_analyse', { fen: toFen(), depth, onLine, castling: allowCastling });
+    await invoke('engine_analyse', { fen: toFen(), depth, onLine, castling: allowCastling, mode: activeView === 'training' ? playMode : 'normal', history });
   } catch (error) {
     if (my !== token) return;
     crashed = true;
@@ -407,7 +412,8 @@ function show(best, info, live) {
     else { txt = (v > 0 ? '+' : '-') + 'M' + Math.abs(v); pct = v > 0 ? 100 : 0; }
   }
   $('#evf').style.height = pct + '%';
-  status(live ? `Thinking for ${name(turn)}... depth ${live}` : `Best move for ${name(turn)}: ${best.slice(0, 2)}-${best.slice(2)}`);
+  const label = activeView === 'training' && playMode !== 'normal' ? 'Suggested move' : 'Best move';
+  status(live ? `Thinking for ${name(turn)}... depth ${live}` : `${label} for ${name(turn)}: ${best.slice(0, 2)}-${best.slice(2)}`);
   $('#line').textContent = `eval ${txt}  ${pv}`;
   drawArrow();
   if (!live && (auto || both)) { const my = token; timer = setTimeout(() => playSug(my, best), 150); }
@@ -445,6 +451,7 @@ document.querySelectorAll('[data-side]').forEach(b => b.onclick = () => { sfSide
 document.querySelectorAll('[data-turn]').forEach(b => b.onclick = () => { turn = b.dataset.turn; ep = '-'; changed(true); });
 const depthOptions = [...document.querySelectorAll('[data-depth]')];
 function syncDepth() {
+  $('#depth-slider').value = customDepth;
   const selected = depthOptions.find(option => option.dataset.depth === depthPreset);
   $('#depth-label').textContent = depthPreset === 'custom'
     ? `Custom · ${customDepth}` : `${depth} · ${selected.lastElementChild.textContent}`;
@@ -539,11 +546,19 @@ function syncWorkspace() {
   });
   $('#workspace').setAttribute('aria-labelledby', training ? 'tab-training' : 'tab-analyzer');
   $('#workspace-heading').textContent = training ? 'Game Training' : 'Analyzer';
+  $('#training-modes').hidden = !training;
+  document.querySelectorAll('[data-mode]').forEach(button => {
+    const selected = button.dataset.mode === playMode;
+    button.classList.toggle('on', selected); button.setAttribute('aria-pressed', String(selected));
+  });
+  $('#mode-description').textContent = playMode === 'queen_collector'
+    ? 'Build more queens while ahead. Compare evaluated legal moves, avoid immediate draw risks, and fall back to the strongest move when needed.'
+    : 'Stockfish chooses its strongest evaluated move.';
   $('#legal-rules').checked = legalRules; $('#allow-castling').checked = allowCastling;
   pal.hidden = legalRules;
   $('#clear').disabled = legalRules; $('#erase').disabled = legalRules;
   document.querySelectorAll('[data-turn]').forEach(button => button.disabled = legalRules);
-  $('.hint').textContent = legalRules
+  $('#board-help').textContent = legalRules
     ? 'Move the side to play. Legal rules apply, including check, en passant, and promotion. Load a valid FEN to train another position.'
     : 'Drag pieces from the tray onto the board, or drop them off the board to remove. Right-click clears a square. Castling follows the position’s rights.';
 }
@@ -551,18 +566,20 @@ function syncWorkspace() {
 function switchWorkspace(nextView) {
   if (nextView === activeView || movePending) return;
   if (drag) finish({}, true);
-  sessions[activeView] = { fen: toFen(), history: history.slice(), sfSide, auto, both, legalRules, allowCastling, flip, plies };
+  closeDepth();
+  sessions[activeView] = { fen: toFen(), history: history.slice(), sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth };
   activeView = nextView;
   const next = sessions[nextView];
   if (next) {
     load(next.fen); history = next.history.slice();
-    ({ sfSide, auto, both, legalRules, allowCastling, flip, plies } = next);
+    ({ sfSide, auto, both, legalRules, allowCastling, flip, plies, depth, depthPreset, customDepth } = next);
   } else {
     load(START); history = []; plies = 0; flip = false;
     sfSide = 'b'; auto = true; both = false; legalRules = true; allowCastling = true;
+    depth = 12; depthPreset = '12'; customDepth = 24;
   }
   tool = null; crashed = false; sug = null; gameState = null; moveNotice();
-  syncWorkspace(); render(); syncTool(); schedule();
+  syncDepth(); syncWorkspace(); render(); syncTool(); schedule();
 }
 
 document.querySelectorAll('[data-view]').forEach(button => {
@@ -577,6 +594,9 @@ $('#legal-rules').onchange = event => {
   legalRules = event.target.checked; tool = null; moveNotice(); syncWorkspace(); syncTool(); schedule();
 };
 $('#allow-castling').onchange = event => { allowCastling = event.target.checked; moveNotice(); schedule(); };
+document.querySelectorAll('[data-mode]').forEach(button => button.onclick = () => {
+  playMode = button.dataset.mode; syncWorkspace(); schedule();
+});
 
 const appWindow = window.__TAURI__.window.getCurrentWindow();
 $('#window-minimize').onclick = () => appWindow.minimize().catch(error => status(String(error)));

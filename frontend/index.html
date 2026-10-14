@@ -33,6 +33,15 @@
       <label class="toggle"><input id="allow-castling" type="checkbox" checked><span class="switch" aria-hidden="true"></span>Allow castling</label>
     </div>
     <p id="move-notice" class="move-notice" role="alert" hidden></p>
+    <div id="training-modes" class="card" hidden>
+      <div class="lbl">Playing mode</div>
+      <div class="seg mode-controls">
+        <button class="act on" data-mode="normal" aria-pressed="true">Normal</button>
+        <button class="act" data-mode="queen_collector" aria-pressed="false">Queen Collector</button>
+      </div>
+      <p id="mode-description" class="hint">Stockfish chooses its strongest evaluated move.</p>
+      <p id="mode-explanation" class="hint" aria-live="polite"></p>
+    </div>
     <div id="game-status" class="game-status" role="status" aria-live="polite" aria-atomic="true" data-kind="playing">White to move</div>
     <div class="card">
       <div class="lbl">Stockfish plays</div>
@@ -79,7 +88,7 @@
       <input id="fen" spellcheck="false" aria-label="FEN">
       <button class="act go" id="copy">Copy FEN</button>
     </div>
-    <p class="hint">Drag pieces from the tray onto the board, or drop them off the board to remove. Moving a piece on the board passes the turn, and Stockfish only suggests once it is its side's turn. Right-click clears a square.</p>
+    <p id="board-help" class="hint">Drag pieces from the tray onto the board, or drop them off the board to remove. Moving a piece on the board passes the turn, and Stockfish only suggests once it is its side's turn. Right-click clears a square.</p>
   </aside>
 </main>
 <script src="app.js" defer></script>
