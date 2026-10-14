@@ -3,17 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Board Editor</title>
+<title>Chessbot</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<header class="titlebar">
+  <div class="app-brand" data-tauri-drag-region><img src="icon.png" width="24" height="24" alt=""><span data-tauri-drag-region>Chessbot</span></div>
+  <div class="titlebar-drag" data-tauri-drag-region></div>
+  <div class="window-controls">
+    <button id="window-minimize" aria-label="Minimize window" title="Minimize"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10"/></svg></button>
+    <button id="window-maximize" aria-label="Maximize window" title="Maximize"><svg viewBox="0 0 16 16" aria-hidden="true"><path id="maximize-icon" d="M3.5 3.5h9v9h-9z"/></svg></button>
+    <button id="window-close" aria-label="Close window" title="Close"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 3.5 9 9m0-9-9 9"/></svg></button>
+  </div>
+</header>
 <main>
   <div class="board-area">
     <div class="ev" aria-label="Position evaluation" title="Position evaluation"><i id="evf"></i></div>
     <div class="bw"><div id="board"></div><svg id="arrows" viewBox="0 0 8 8"></svg></div>
   </div>
   <aside>
-    <h1>Board editor</h1>
+    <h1>Chessbot</h1>
     <div id="game-status" class="game-status" role="status" aria-live="polite" aria-atomic="true" data-kind="playing">White to move</div>
     <div class="card">
       <div class="lbl">Stockfish plays</div>

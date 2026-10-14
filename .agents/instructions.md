@@ -1,4 +1,4 @@
-# Board Editor instructions
+# Chessbot instructions
 
 ## Project
 

@@ -4,6 +4,16 @@ I record changes here and use the versioning described in [VERSIONING.md](VERSIO
 
 ## Unreleased
 
+## 1.1.0
+
+### Added
+
+- Custom Chessbot title bar with app icon and native minimize, maximize/restore, and close controls.
+
+### Changed
+
+- Renamed the app, executable, and installer to Chessbot.
+
 ## 1.0.0
 
 ### Added

@@ -478,4 +478,17 @@ document.querySelectorAll('[data-flag]').forEach(b => b.onclick = () => {
   plies = 0; schedule();
 });
 
+const appWindow = window.__TAURI__.window.getCurrentWindow();
+$('#window-minimize').onclick = () => appWindow.minimize().catch(error => status(String(error)));
+$('#window-maximize').onclick = () => appWindow.toggleMaximize().catch(error => status(String(error)));
+$('#window-close').onclick = () => appWindow.close().catch(error => status(String(error)));
+async function syncWindowIcon() {
+  const maximized = await appWindow.isMaximized();
+  $('#window-maximize').setAttribute('aria-label', maximized ? 'Restore window' : 'Maximize window');
+  $('#window-maximize').title = maximized ? 'Restore' : 'Maximize';
+  $('#maximize-icon').setAttribute('d', maximized ? 'M5.5 3.5v-1h8v8h-1m-9-6h8v8h-8z' : 'M3.5 3.5h9v9h-9z');
+}
+appWindow.onResized(() => syncWindowIcon().catch(() => {}));
+syncWindowIcon().catch(() => {});
+
 load(START); render(); boot(); schedule();

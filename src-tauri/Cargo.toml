@@ -1,6 +1,6 @@
 [package]
-name = "chess-stockfish"
-version = "1.0.0"
+name = "chessbot"
+version = "1.1.0"
 edition = "2021"
 description = "Native Stockfish board editor"
 license = "GPL-3.0-or-later"

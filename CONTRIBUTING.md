@@ -1,4 +1,4 @@
-# Contributing to Board Editor
+# Contributing to Chessbot
 
 Thanks for taking a look at my project. Please keep changes focused and explain what they improve. For a substantial feature, open an issue first so I can discuss the approach with you.
 

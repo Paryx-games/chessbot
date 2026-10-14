@@ -1,6 +1,6 @@
 # Third-party notices
 
-I've licensed my Board Editor code under GPL-3.0-or-later. The third-party components I use retain their licenses and copyright notices.
+I've licensed my Chessbot code under GPL-3.0-or-later. The third-party components I use retain their licenses and copyright notices.
 
 ## Stockfish
 

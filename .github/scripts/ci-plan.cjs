@@ -32,7 +32,7 @@ async function select({ github, context, core }) {
   }
   const selection = plan(paths, fullRun);
   for (const group of GROUPS) core.setOutput(group, String(selection[group]));
-  await core.summary.addHeading('Board Editor checks')
+  await core.summary.addHeading('Chessbot checks')
     .addRaw(GROUPS.map(group => '- ' + group + ': ' + (selection[group] ? 'required' : 'not needed')).join('\n'))
     .write();
 }

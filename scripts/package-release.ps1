@@ -16,7 +16,7 @@ $prefix = "chessbot-$Tag-windows-x64"
 Copy-Item -LiteralPath $installers[0].FullName -Destination (Join-Path $output "$prefix-setup.exe")
 $portable = Join-Path $output 'portable'
 New-Item -ItemType Directory -Path $portable | Out-Null
-foreach ($name in @('chess-stockfish.exe','stockfish.exe','LICENSE','THIRD_PARTY_NOTICES.md')) {
+foreach ($name in @('chessbot.exe','stockfish.exe','LICENSE','THIRD_PARTY_NOTICES.md')) {
     Copy-Item -LiteralPath (Join-Path $releaseRoot $name) -Destination (Join-Path $portable $name)
 }
 Copy-Item -LiteralPath (Join-Path $releaseRoot 'licenses') -Destination (Join-Path $portable 'licenses') -Recurse

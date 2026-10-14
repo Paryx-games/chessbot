@@ -21,7 +21,7 @@ if (require.main === module) {
   const problems = failures(JSON.parse(process.env.CI_NEEDS));
   for (const problem of problems) console.error(problem);
   if (problems.length) process.exitCode = 1;
-  else console.log('Board Editor CI requirements satisfied.');
+  else console.log('Chessbot CI requirements satisfied.');
 }
 
 module.exports = { failures };

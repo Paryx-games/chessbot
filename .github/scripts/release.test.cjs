@@ -12,8 +12,8 @@ test('release tags match the application version and classify prereleases', () =
   for (const tag of ['main', '--help', 'v1.0.0\nrun', 'v1.0.1']) assert.throws(() => validateTag(tag, '1.0.0'));
 });
 test('release notes select only the matching maintained changelog section', () => {
-  const text = '# Changes\n\n## Unreleased\n\nFuture\n\n## 1.0.0\n\n### Added\n\n- Board editor\n\n## 0.0.1\n\nOlder';
-  assert.equal(changelogNotes(text, 'v1.0.0'), '### Added\n\n- Board editor');
+  const text = '# Changes\n\n## Unreleased\n\nFuture\n\n## 1.0.0\n\n### Added\n\n- Chessbot\n\n## 0.0.1\n\nOlder';
+  assert.equal(changelogNotes(text, 'v1.0.0'), '### Added\n\n- Chessbot');
   assert.throws(() => changelogNotes(text, 'v0.2.0'));
   assert.throws(() => changelogNotes('## 1.0.0\n\n### Added', 'v1.0.0'));
 });

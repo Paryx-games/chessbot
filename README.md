@@ -2,10 +2,10 @@
 
 <div align="center">
   <a href="https://github.com/Paryx-games/chessbot">
-    <img src="assets/branding/icon.png" alt="Board Editor" width="240">
+    <img src="assets/branding/icon.png" alt="Chessbot" width="240">
   </a>
 
-  <h3 align="center">Board Editor</h3>
+  <h3 align="center">Chessbot</h3>
 
   <p align="center">
     My Windows chess board editor using Tauri, Rust, and Stockfish 19, with position editing, move analysis, and automated play.
@@ -71,11 +71,11 @@
 
 ## Showcase image
 
-<img src="assets/branding/social-preview.png" alt="Board Editor — Chess move analysis">
+<img src="assets/branding/social-preview.png" alt="Chessbot — Chess move analysis">
 
 ## About The Project
 
-I built Board Editor as a Windows chess position editor using Rust, Tauri, and native Stockfish. Set up a board, analyse moves, and watch the engine play one or both sides.
+I built Chessbot as a Windows chess position editor using Rust, Tauri, and native Stockfish. Set up a board, analyse moves, and watch the engine play one or both sides.
 
 The interface lives in `frontend/`, with the Rust backend and desktop configuration in `src-tauri/`. I use plain HTML, CSS, and JavaScript for the board and controls, and keep engine execution and game-status checks in Rust.
 
@@ -102,15 +102,15 @@ See [CHANGELOG.md](CHANGELOG.md) for what's changed. Downloads will appear once 
 
 My release workflow produces two app downloads:
 
-- **Installer** - `chessbot-vX.Y.Z-windows-x64-setup.exe`. Installs Board Editor with Stockfish and the license/source resources. **Recommended for most users.**
-- **Portable ZIP** - `chessbot-vX.Y.Z-windows-x64-portable.zip`. Extract the whole archive and run `chess-stockfish.exe`. Keep `stockfish.exe` and the other files alongside it. Microsoft WebView2 Runtime must already be installed.
+- **Installer** - `chessbot-vX.Y.Z-windows-x64-setup.exe`. Installs Chessbot with Stockfish and the license/source resources. **Recommended for most users.**
+- **Portable ZIP** - `chessbot-vX.Y.Z-windows-x64-portable.zip`. Extract the whole archive and run `chessbot.exe`. Keep `stockfish.exe` and the other files alongside it. Microsoft WebView2 Runtime must already be installed.
 
 The installer can download WebView2 if it's missing, which requires internet access. Once the app and runtime are installed, I can edit positions and run analysis offline.
 
 Release assets include `SHA256SUMS.txt` for the downloads and the corresponding Stockfish source archive. Compare a download with `Get-FileHash -Algorithm SHA256` when checking its integrity. GitHub provides the app's source archives automatically.
 
 > [!TIP]
-> **Keep the portable folder together.** Board Editor needs the bundled Stockfish executable and license/source resources. WebView2 may store browser data outside the extracted folder.
+> **Keep the portable folder together.** Chessbot needs the bundled Stockfish executable and license/source resources. WebView2 may store browser data outside the extracted folder.
 
 No Rust or Node.js installation is required to run either download. I use those tools for building the app and checking its code. My current builds are unsigned.
 
@@ -171,7 +171,7 @@ I've listed third-party license information in [THIRD_PARTY_NOTICES.md](THIRD_PA
 
 ## Support the Project
 
-If Board Editor is useful to you or you enjoy using it, you can support me on Ko-fi. Donations are optional, and I appreciate the support.
+If Chessbot is useful to you or you enjoy using it, you can support me on Ko-fi. Donations are optional, and I appreciate the support.
 
 <a href="https://ko-fi.com/paryx">
   <img src="https://storage.ko-fi.com/cdn/brandasset/v2/support_me_on_kofi_dark.png" alt="Support me on Ko-fi" height="44">
@@ -207,7 +207,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-stockfish.ps1
 cargo tauri build --ci --bundles nsis -- --locked
 ```
 
-The executable is `src-tauri/target/release/chess-stockfish.exe`. The installer is under `src-tauri/target/release/bundle/nsis/`, normally `Board Editor_<version>_x64-setup.exe`. I use the Tauri CLI for distributable builds so the frontend, native sidecar, and resources are packaged together.
+The executable is `src-tauri/target/release/chessbot.exe`. The installer is under `src-tauri/target/release/bundle/nsis/`, normally `Chessbot_<version>_x64-setup.exe`. I use the Tauri CLI for distributable builds so the frontend, native sidecar, and resources are packaged together.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -299,7 +299,7 @@ node --test .github/scripts/*.test.cjs
 
 ## Reporting Issues & Requesting Features
 
-Found a bug or have an idea for Board Editor? Here's where I'd like it to go:
+Found a bug or have an idea for Chessbot? Here's where I'd like it to go:
 
 - **Bug report** - [Open a bug report](https://github.com/Paryx-games/chessbot/issues/new?template=bug_report.yml). Give me the app version, Windows version, FEN, depth, and steps to reproduce it.
 - **Feature request** - [Open a feature request](https://github.com/Paryx-games/chessbot/issues/new?template=feature_request.yml). Tell me which editing or analysis workflow it would improve.
@@ -324,6 +324,6 @@ If you'd like to help, fork the repository and open a pull request. You can also
 
 ## License
 
-I've licensed Board Editor under [GPL-3.0-or-later](LICENSE). Third-party components retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+I've licensed Chessbot under [GPL-3.0-or-later](LICENSE). Third-party components retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

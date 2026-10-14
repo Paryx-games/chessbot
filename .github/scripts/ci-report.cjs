@@ -20,9 +20,9 @@ function describe(run, jobs, repository, server = 'https://github.com') {
   const failed = jobs.filter(job => job.conclusion && !OK.has(job.conclusion));
   const lines = [COMMENT_MARK, `<!-- build ${run.id} attempt ${run.run_attempt} -->`];
   if (run.conclusion === 'success') {
-    lines.push('<details>', '<summary>Board Editor CI passed</summary>', '', 'All required checks passed.', '', '</details>');
+    lines.push('<details>', '<summary>Chessbot CI passed</summary>', '', 'All required checks passed.', '', '</details>');
   } else {
-    lines.push('### Board Editor CI needs attention', '');
+    lines.push('### Chessbot CI needs attention', '');
     const visible = failed.filter(job => job.name !== 'CI passed');
     for (const job of visible.length ? visible : failed) {
       const steps = (job.steps ?? []).filter(step => step.conclusion && !OK.has(step.conclusion));
@@ -70,7 +70,7 @@ async function report({ github, context, core }) {
   if (!matches(currentPull) || currentRun.run_attempt !== run.run_attempt) return;
   if (!comment) await github.rest.issues.createComment({ ...repo, issue_number: pull.number, body });
   else if (comment.body !== body) await github.rest.issues.updateComment({ ...repo, comment_id: comment.id, body });
-  core.info('Board Editor check report updated.');
+  core.info('Chessbot check report updated.');
 }
 
 module.exports = { safeText, identify, describe, report };

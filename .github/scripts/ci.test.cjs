@@ -6,7 +6,7 @@ const { identify, describe, report } = require('./ci-report.cjs');
 const everything = { frontend: true, frontendBuild: true, rust: true, build: true };
 const nothing = Object.fromEntries(Object.keys(everything).map(key => [key, false]));
 
-test('Board Editor inputs select the appropriate checks', () => {
+test('Chessbot inputs select the appropriate checks', () => {
   assert.deepEqual(plan(['README.md', '.github/FUNDING.yml']), nothing);
   assert.deepEqual(plan(['frontend/style.css']), { ...everything, rust: false });
   assert.deepEqual(plan(['frontend\\app.js']), { ...everything, rust: false });
@@ -48,7 +48,7 @@ test('report text escapes job names and identifies only this app’s comments', 
   assert.ok(!body.includes('<script>') && !body.includes('@person'));
   assert.deepEqual(identify(body), { run: 12, attempt: 2 });
   assert.equal(identify('Unrelated comment'), null);
-  assert.match(describe({ ...run, conclusion: 'success' }, [], 'test/chessbot'), /<summary>Board Editor CI passed/);
+  assert.match(describe({ ...run, conclusion: 'success' }, [], 'test/chessbot'), /<summary>Chessbot CI passed/);
 });
 
 function fixture() {

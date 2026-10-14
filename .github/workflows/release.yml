@@ -136,7 +136,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          args=(release/*.exe release/*.zip release/*.txt --repo "$GITHUB_REPOSITORY" --verify-tag --target "$RELEASE_SHA" --title "Board Editor $RELEASE_TAG" --notes-file final-release-notes.md --draft)
+          args=(release/*.exe release/*.zip release/*.txt --repo "$GITHUB_REPOSITORY" --verify-tag --target "$RELEASE_SHA" --title "Chessbot $RELEASE_TAG" --notes-file final-release-notes.md --draft)
           if [[ "$RELEASE_PRERELEASE" == 'true' ]]; then args+=(--prerelease); fi
           gh release create "$RELEASE_TAG" "${args[@]}"
       - name: Recheck tag immediately before publication

@@ -15,11 +15,11 @@ test('portable packaging includes sidecar, licenses, source, commit, and matchin
   fs.writeFileSync(path.join(root, 'src-tauri/tauri.conf.json'), JSON.stringify({ version: '1.0.0' }));
   fs.writeFileSync(path.join(root, 'README.md'), 'Synthetic packaging fixture\n');
   fs.writeFileSync(path.join(root, '.gitignore'), 'src-tauri/target/\n.cache/\n');
-  for (const name of ['chess-stockfish.exe', 'stockfish.exe', 'LICENSE', 'THIRD_PARTY_NOTICES.md']) {
+  for (const name of ['chessbot.exe', 'stockfish.exe', 'LICENSE', 'THIRD_PARTY_NOTICES.md']) {
     fs.writeFileSync(path.join(release, name), `Synthetic ${name}\n`);
   }
-  fs.writeFileSync(path.join(release, 'bundle/nsis/Board Editor_1.0.0_x64-setup.exe'), 'Synthetic installer');
-  fs.writeFileSync(path.join(release, 'bundle/nsis/Board Editor_0.9.0_x64-setup.exe'), 'Stale installer');
+  fs.writeFileSync(path.join(release, 'bundle/nsis/Chessbot_1.0.0_x64-setup.exe'), 'Synthetic installer');
+  fs.writeFileSync(path.join(release, 'bundle/nsis/Chessbot_0.9.0_x64-setup.exe'), 'Stale installer');
   fs.writeFileSync(path.join(release, 'licenses/Stockfish-sf_19-source.zip'), 'Synthetic engine source');
   const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   git(['init', '--quiet']); git(['add', 'README.md', '.gitignore', 'scripts', 'src-tauri/tauri.conf.json']);
@@ -39,6 +39,6 @@ test('portable packaging includes sidecar, licenses, source, commit, and matchin
   const entries = execFileSync('pwsh', ['-NoProfile', '-Command', 'Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip=[IO.Compression.ZipFile]::OpenRead($env:PACKAGE_TEST_ZIP); $zip.Entries.FullName; $zip.Dispose()'], {
     env: { ...process.env, PACKAGE_TEST_ZIP: zipPath }, encoding: 'utf8',
   }).replaceAll('\\', '/');
-  for (const name of ['chess-stockfish.exe', 'stockfish.exe', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'licenses/Stockfish-sf_19-source.zip']) assert.ok(entries.includes(name), name);
+  for (const name of ['chessbot.exe', 'stockfish.exe', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'licenses/Stockfish-sf_19-source.zip']) assert.ok(entries.includes(name), name);
   assert.throws(() => run('v1.0.0')); // Do not silently mix new output with stale release files.
 });
