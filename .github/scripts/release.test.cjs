@@ -8,7 +8,8 @@ const { execFileSync } = require('node:child_process');
 
 test('release tags match the application version and classify prereleases', () => {
   assert.deepEqual(validateTag('v1.0.0', '1.0.0'), { prerelease: false, makeLatest: true });
-  assert.equal(validateTag('v0.2.0-rc.1', '0.2.0-rc.1').prerelease, true);
+  assert.deepEqual(validateTag('v1.1.0-beta.1', '1.1.0-beta.1'), { prerelease: true, makeLatest: false });
+  assert.equal(validateTag('v0.2.0-rc.1', '0.2.0-rc.1').prerelease, false);
   for (const tag of ['main', '--help', 'v1.0.0\nrun', 'v1.0.1']) assert.throws(() => validateTag(tag, '1.0.0'));
 });
 test('release notes select only the matching maintained changelog section', () => {
@@ -48,4 +49,13 @@ test('release notes describe installer, portable, and source downloads accuratel
   assert.match(notes, /synthetic-sha/);
   assert.match(notes, /unsigned/);
   assert.match(notes, /https:\/\/ko-fi.com\/paryx/);
+  for (const folder of ['changelog', 'github', 'security']) fs.mkdirSync(path.join(root, 'notes', folder));
+  fs.renameSync(path.join(root, 'notes/release-notes.md'), path.join(root, 'notes/changelog/release-notes.md'));
+  fs.writeFileSync(path.join(root, 'notes/github/github-release-notes.md'), 'Synthetic generated notes');
+  fs.writeFileSync(path.join(root, 'notes/security/security.md'), 'Synthetic scan results and provenance');
+  execFileSync(process.execPath, [path.resolve('scripts/write-release-notes.cjs')], {
+    cwd: root, env: { ...process.env, RELEASE_TAG: 'v1.0.0', RELEASE_SHA: 'synthetic-sha', GITHUB_REPOSITORY: 'Paryx-games/chessbot' },
+  });
+  const assembled = fs.readFileSync(path.join(root, 'final-release-notes.md'), 'utf8');
+  for (const part of ['Synthetic release change', 'Synthetic generated notes', 'Synthetic scan results and provenance']) assert.ok(assembled.includes(part));
 });

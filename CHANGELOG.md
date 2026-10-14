@@ -11,6 +11,7 @@ I record changes here and use the versioning described in [VERSIONING.md](VERSIO
 
 ### Changed
 
+- Matched CI and release job structure with separate Rust checks, trusted PR labels, live failure reporting, build provenance, generated release notes, and best-effort download scans.
 - Widened the sidebar and moved board guidance into a footer to avoid horizontal scrolling at the minimum window size.
 - Moved playing styles to Analyzer, disabled Both sides in Game Training, and moved the side-selection prompt into the position-status box.
 - Tab underlines grow from the centre on hover and expand fully when selected, respecting reduced motion.

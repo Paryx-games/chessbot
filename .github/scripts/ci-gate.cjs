@@ -1,27 +1,35 @@
-const REQUIRED = ['changes', 'workflow-check', 'zizmor'];
-const CHECKS = { frontend: ['frontend'], frontendBuild: ['frontend-build'], rust: ['fmt', 'rust'], build: ['build'] };
+const groups = {
+  frontend: ['frontend'], frontendBuild: ['frontend-build'],
+  rust: ['fmt', 'clippy', 'test'], build: ['build'],
+};
 
-function failures(results) {
-  const problems = REQUIRED.filter(id => results[id]?.result !== 'success')
-    .map(id => `Required job ${id} did not succeed`);
-  for (const [group, jobs] of Object.entries(CHECKS)) {
-    const selected = results.changes?.outputs?.[group];
-    if (!['true', 'false'].includes(selected)) {
-      problems.push(`No valid selection for ${group}`);
+function failures(needs) {
+  const errors = [];
+  for (const key of ['changes', 'workflow-check', 'zizmor']) {
+    if (needs[key]?.result !== 'success') errors.push(`${key}: ${needs[key]?.result ?? 'missing'}`);
+  }
+  for (const [flag, jobs] of Object.entries(groups)) {
+    const value = needs.changes?.outputs?.[flag];
+    if (value !== 'true' && value !== 'false') {
+      errors.push(`Missing or invalid selection: ${flag}`);
       continue;
     }
-    const expected = selected === 'true' ? 'success' : 'skipped';
-    jobs.filter(id => results[id]?.result !== expected)
-      .forEach(id => problems.push(`${id} must be ${expected}; received ${results[id]?.result ?? 'no result'}`));
+    for (const key of jobs) {
+      const expected = value === 'true' ? 'success' : 'skipped';
+      if (needs[key]?.result !== expected) errors.push(`${key}: expected ${expected}, got ${needs[key]?.result ?? 'missing'}`);
+    }
   }
-  return problems;
+  return errors;
 }
 
 if (require.main === module) {
-  const problems = failures(JSON.parse(process.env.CI_NEEDS));
-  for (const problem of problems) console.error(problem);
-  if (problems.length) process.exitCode = 1;
-  else console.log('Chessbot CI requirements satisfied.');
+  const errors = failures(JSON.parse(process.env.CI_NEEDS));
+  if (errors.length) {
+    console.error(errors.join('\n'));
+    process.exitCode = 1;
+  } else {
+    console.log('All required checks passed; only unneeded checks were skipped.');
+  }
 }
 
 module.exports = { failures };
