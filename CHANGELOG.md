@@ -9,6 +9,8 @@ I record changes here and use the versioning described in [VERSIONING.md](VERSIO
 ### Added
 
 - Custom Chessbot title bar with app icon and native minimize, maximize/restore, and close controls.
+- Analyzer and Game Training workspaces with independent board positions and animated green tab underlines.
+- Legal-rules and castling controls, with Rust validation for manual moves, castling, en passant, and promotion.
 
 ### Changed
 

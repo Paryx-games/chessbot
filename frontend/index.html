@@ -16,13 +16,23 @@
     <button id="window-close" aria-label="Close window" title="Close"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 3.5 9 9m0-9-9 9"/></svg></button>
   </div>
 </header>
-<main>
+<nav class="app-tabs" role="tablist" aria-label="Chessbot workspace">
+  <button id="tab-analyzer" role="tab" aria-selected="true" aria-controls="workspace" tabindex="0" data-view="analyzer">Analyzer</button>
+  <button id="tab-training" role="tab" aria-selected="false" aria-controls="workspace" tabindex="-1" data-view="training">Game Training</button>
+  <span class="tab-underline" aria-hidden="true"></span>
+</nav>
+<main id="workspace" role="tabpanel" aria-labelledby="tab-analyzer">
   <div class="board-area">
     <div class="ev" aria-label="Position evaluation" title="Position evaluation"><i id="evf"></i></div>
     <div class="bw"><div id="board"></div><svg id="arrows" viewBox="0 0 8 8"></svg></div>
   </div>
   <aside>
-    <h1>Chessbot</h1>
+    <h1 id="workspace-heading">Analyzer</h1>
+    <div class="rules-row">
+      <label class="toggle"><input id="legal-rules" type="checkbox"><span class="switch" aria-hidden="true"></span>Legal rules apply</label>
+      <label class="toggle"><input id="allow-castling" type="checkbox" checked><span class="switch" aria-hidden="true"></span>Allow castling</label>
+    </div>
+    <p id="move-notice" class="move-notice" role="alert" hidden></p>
     <div id="game-status" class="game-status" role="status" aria-live="polite" aria-atomic="true" data-kind="playing">White to move</div>
     <div class="card">
       <div class="lbl">Stockfish plays</div>

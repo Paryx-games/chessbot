@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod engine;
 mod game_status;
+mod rules;
 use std::{
     path::PathBuf,
     sync::{
@@ -61,8 +62,27 @@ fn engine_cancel(state: State<'_, Backend>) {
 }
 
 #[tauri::command]
-fn position_status(fen: String, history: Vec<String>) -> game_status::GameStatus {
-    game_status::inspect(&fen, &history)
+fn position_status(
+    fen: String,
+    history: Vec<String>,
+    castling: Option<bool>,
+) -> game_status::GameStatus {
+    let allowed = castling.unwrap_or(true);
+    let history = history
+        .iter()
+        .map(|fen| rules::analysis_fen(fen, allowed))
+        .collect::<Vec<_>>();
+    game_status::inspect(&rules::analysis_fen(&fen, allowed), &history)
+}
+
+#[tauri::command]
+fn legal_moves(fen: String, castling: bool) -> Result<Vec<String>, String> {
+    rules::legal_moves(&fen, castling)
+}
+
+#[tauri::command]
+fn make_move(fen: String, uci: String, castling: bool) -> Result<String, String> {
+    rules::make_move(&fen, &uci, castling)
 }
 
 #[tauri::command]
@@ -70,9 +90,11 @@ async fn engine_analyse(
     fen: String,
     depth: u8,
     on_line: Channel<String>,
+    castling: Option<bool>,
     state: State<'_, Backend>,
 ) -> Result<(), String> {
     engine::validate_fen(&fen)?;
+    let fen = rules::analysis_fen(&fen, castling.unwrap_or(true));
     let state = state.inner().clone();
     let generation = state.latest.fetch_add(1, Ordering::SeqCst) + 1;
     tauri::async_runtime::spawn_blocking(move || {
@@ -113,7 +135,9 @@ fn main() {
             engine_start,
             engine_analyse,
             engine_cancel,
-            position_status
+            position_status,
+            legal_moves,
+            make_move
         ])
         .build(tauri::generate_context!())
         .expect("Failed to build Board Editor")

@@ -14,6 +14,8 @@ const P = {
 const BASE = '<path d="M11.5 40v-2.5c0-1.9 1.4-3.3 3.3-3.3h15.4c1.9 0 3.3 1.4 3.3 3.3V40z"/>';
 let grid = Array(64).fill(''), flip = false, tool = null, drag = null, ghost = null;
 let turn = 'w', ep = '-', cr = new Set('KQkq'), sfSide = null, sug = null;
+let activeView = 'analyzer', legalRules = false, allowCastling = true, movePending = false;
+const sessions = { analyzer: null, training: null };
 let halfmoves = 0, fullmoves = 1, history = [], gameState = null, stateFen = '';
 
 const pc = ch => { const t = ch.toLowerCase(); return `<svg viewBox="0 0 45 45" class="${ch === t ? 'b' : 'w'}" stroke-width="1.5" stroke-linejoin="round">${BASE}${P[t]}</svg>`; };
@@ -89,6 +91,8 @@ function place(e) { ghost.style.left = e.clientX + 'px'; ghost.style.top = e.cli
 function begin(e, ch, from) {
   if (e.button > 0) return;
   e.preventDefault();
+  if (movePending) return;
+  if (legalRules && (from == null || (ch === ch.toUpperCase()) !== (turn === 'w'))) return moveNotice('Move a piece belonging to the side to move.');
   drag = { ch, from, x: e.clientX, y: e.clientY, moved: false };
   ghost = document.createElement('div');
   ghost.className = 'ghost';
@@ -111,13 +115,15 @@ board.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   const s = e.target.closest('.sq'); if (!s) return;
   const i = +s.dataset.i;
+  if (movePending) return;
+  if (legalRules && tool) return;
   if (tool) { grid[i] = tool === 'x' ? '' : tool; ep = '-'; changed(true); return; }
   if (grid[i]) begin(e, grid[i], i);
 });
 board.addEventListener('contextmenu', e => {
   e.preventDefault();
   const s = e.target.closest('.sq');
-  if (s) { grid[+s.dataset.i] = ''; ep = '-'; changed(true); }
+  if (s && !legalRules && !movePending) { grid[+s.dataset.i] = ''; ep = '-'; changed(true); }
 });
 
 addEventListener('pointermove', e => {
@@ -132,34 +138,44 @@ addEventListener('pointermove', e => {
 function finish(e, cancel) {
   if (!drag) return;
   const d = drag; drag = null; ghost.remove();
-  let did = false;
   if (d.moved && !cancel) {
-    const s = sqAt(e), ti = s ? +s.dataset.i : -1;
-    if (d.from == null) { if (ti >= 0) { grid[ti] = d.ch; ep = '-'; did = true; } }
-    else if (ti < 0) { grid[d.from] = ''; ep = '-'; did = true; }
-    else if (ti !== d.from) { applyMove(d.from, ti); did = true; }
-  } else if (!d.moved && d.from == null) {
-    tool = tool === d.ch ? null : d.ch;
-  }
+    const square = sqAt(e), to = square ? +square.dataset.i : -1;
+    if (d.from != null && to >= 0 && to !== d.from) { render(); syncTool(); manualMove(d.from, to); return; }
+    if (!legalRules) {
+      if (d.from == null && to >= 0) { grid[to] = d.ch; ep = '-'; changed(true); return; }
+      if (d.from != null && to < 0) { grid[d.from] = ''; ep = '-'; changed(true); return; }
+    }
+  } else if (!d.moved && d.from == null && !legalRules) tool = tool === d.ch ? null : d.ch;
   render(); syncTool();
-  if (did) {
-    if (d.from == null || !sqAt(e)) changed(true);
-    else schedule();
-  }
 }
 addEventListener('pointerup', e => finish(e, false));
 addEventListener('pointercancel', e => finish(e, true));
 
 $('#start').onclick = () => { load(START); changed(); };
-$('#clear').onclick = () => { grid = Array(64).fill(''); ep = '-'; changed(true); };
+$('#clear').onclick = () => { if (legalRules) return; grid = Array(64).fill(''); ep = '-'; changed(true); };
 $('#flip').onclick = () => { flip = !flip; render(); };
-$('#erase').onclick = () => { tool = tool === 'x' ? null : 'x'; syncTool(); };
+$('#erase').onclick = () => { if (legalRules) return; tool = tool === 'x' ? null : 'x'; syncTool(); };
 $('#theme').onchange = e => {
   const [l, d] = THEMES[e.target.value];
   document.documentElement.style.setProperty('--l', l);
   document.documentElement.style.setProperty('--d', d);
 };
-fen.addEventListener('change', () => { if (load(fen.value)) changed(); else fen.classList.add('bad'); });
+fen.addEventListener('change', async () => {
+  if (movePending) { fen.value = toFen(); return; }
+  const before = toFen();
+  if (!load(fen.value)) { fen.classList.add('bad'); return; }
+  if (legalRules) {
+    const revision = ++token; movePending = true;
+    clearTimeout(timer); invoke('engine_cancel').catch(() => {});
+    try { await invoke('legal_moves', { fen: toFen(), castling: allowCastling }); }
+    catch (error) {
+      if (revision === token) { load(before); moveNotice(String(error)); render(); }
+      return;
+    } finally { movePending = false; }
+    if (revision !== token) return;
+  }
+  changed();
+});
 $('#copy').onclick = async e => {
   const b = e.currentTarget;
   try { await navigator.clipboard.writeText(fen.value); b.textContent = 'Copied'; }
@@ -178,6 +194,7 @@ let depthPreset = '12', customDepth = 24;
 let cancellation = Promise.resolve();
 
 function changed(resetClock = false) {
+  moveNotice();
   crashed = false; plies = 0; history = []; gameState = null;
   if (resetClock) { halfmoves = 0; fullmoves = 1; }
   render(); syncTool(); schedule();
@@ -262,7 +279,7 @@ function legalMoves(i) {
     return k < 0 || !attacked(g, k, !w);
   };
   const out = raw.filter(safe);
-  if (t === 'k' && i === (w ? 60 : 4) && !attacked(grid, i, !w)) {
+  if (allowCastling && t === 'k' && i === (w ? 60 : 4) && !attacked(grid, i, !w)) {
     const row = w ? 56 : 0, rk = w ? 'R' : 'r';
     if (cr.has(w ? 'K' : 'k') && grid[row + 7] === rk && !grid[row + 5] && !grid[row + 6] && !attacked(grid, row + 5, !w) && !attacked(grid, row + 6, !w)) out.push(row + 6);
     if (cr.has(w ? 'Q' : 'q') && grid[row] === rk && !grid[row + 1] && !grid[row + 2] && !grid[row + 3] && !attacked(grid, row + 2, !w) && !attacked(grid, row + 3, !w)) out.push(row + 2);
@@ -270,8 +287,16 @@ function legalMoves(i) {
   return out;
 }
 
-function showDots(i) {
-  legalMoves(i).forEach(j => sqEl(j)?.classList.add(grid[j] ? 'cap' : 'dot'));
+async function showDots(i) {
+  if (!legalRules) { legalMoves(i).forEach(j => sqEl(j)?.classList.add(grid[j] ? 'cap' : 'dot')); return; }
+  const currentDrag = drag, position = toFen();
+  try {
+    const moves = await invoke('legal_moves', { fen: position, castling: allowCastling });
+    if (drag !== currentDrag || position !== toFen()) return;
+    moves.filter(move => idx(move.slice(0, 2)) === i).forEach(move => {
+      const j = idx(move.slice(2, 4)); sqEl(j)?.classList.add(grid[j] ? 'cap' : 'dot');
+    });
+  } catch { /* I leave hints empty while the position is incomplete. */ }
 }
 
 function validate() {
@@ -323,7 +348,7 @@ async function schedule() {
   const currentFen = toFen();
   paintGameStatus({ kind: 'playing', message: 'Checking position…', checked_square: null });
   try {
-    const result = await invoke('position_status', { fen: currentFen, history });
+    const result = await invoke('position_status', { fen: currentFen, history, castling: allowCastling });
     if (my !== token) return;
     gameState = result; stateFen = currentFen;
     paintGameStatus(result);
@@ -360,7 +385,7 @@ async function search(my) {
     }
   };
   try {
-    await invoke('engine_analyse', { fen: toFen(), depth, onLine });
+    await invoke('engine_analyse', { fen: toFen(), depth, onLine, castling: allowCastling });
   } catch (error) {
     if (my !== token) return;
     crashed = true;
@@ -389,12 +414,15 @@ function show(best, info, live) {
 }
 
 // auto-play: plays the suggestion, with caps so a both-sides game can't run forever
-function playSug(my, mv) {
+async function playSug(my, mv) {
   if (my !== token || !sug) return;
   if (plies >= 200) { sug = null; drawArrow(); return status('Stopped after 200 auto moves - change the position to continue'); }
-  const a = idx(mv.slice(0, 2)), b = idx(mv.slice(2, 4));
-  applyMove(a, b);
-  if (mv.length === 5) grid[b] = grid[b] === grid[b].toUpperCase() ? mv[4].toUpperCase() : mv[4];
+  const position = toFen();
+  try {
+    const next = await invoke('make_move', { fen: position, uci: mv, castling: allowCastling });
+    if (my !== token || position !== toFen()) return;
+    history.push(position); load(next);
+  } catch (error) { if (my === token) moveNotice(String(error)); return; }
   plies++;
   render(); syncTool();
   schedule();
@@ -478,6 +506,78 @@ document.querySelectorAll('[data-flag]').forEach(b => b.onclick = () => {
   plies = 0; schedule();
 });
 
+function moveNotice(message = '') {
+  $('#move-notice').textContent = message;
+  $('#move-notice').hidden = !message;
+}
+
+async function manualMove(from, to) {
+  if (movePending) return;
+  moveNotice();
+  const ch = grid[from];
+  const castleAttempt = ch.toLowerCase() === 'k' && (from >> 3) === (to >> 3) && Math.abs((from & 7) - (to & 7)) === 2;
+  if (!legalRules && !castleAttempt) { applyMove(from, to); render(); syncTool(); schedule(); return; }
+  const position = toFen(), revision = ++token;
+  clearTimeout(timer); invoke('engine_cancel').catch(() => {}); movePending = true;
+  const notation = index => 'abcdefgh'[index & 7] + (8 - (index >> 3));
+  const promotion = ch.toLowerCase() === 'p' && (to < 8 || to >= 56) ? 'q' : '';
+  try {
+    const next = await invoke('make_move', { fen: position, uci: notation(from) + notation(to) + promotion, castling: allowCastling });
+    if (revision !== token || position !== toFen()) return;
+    history.push(position); load(next); render(); syncTool(); schedule();
+  } catch (error) {
+    if (revision === token) { moveNotice(String(error)); render(); schedule(); }
+  } finally { movePending = false; }
+}
+
+function syncWorkspace() {
+  const training = activeView === 'training';
+  $('.app-tabs').classList.toggle('training', training);
+  document.querySelectorAll('[data-view]').forEach(button => {
+    const selected = button.dataset.view === activeView;
+    button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1;
+  });
+  $('#workspace').setAttribute('aria-labelledby', training ? 'tab-training' : 'tab-analyzer');
+  $('#workspace-heading').textContent = training ? 'Game Training' : 'Analyzer';
+  $('#legal-rules').checked = legalRules; $('#allow-castling').checked = allowCastling;
+  pal.hidden = legalRules;
+  $('#clear').disabled = legalRules; $('#erase').disabled = legalRules;
+  document.querySelectorAll('[data-turn]').forEach(button => button.disabled = legalRules);
+  $('.hint').textContent = legalRules
+    ? 'Move the side to play. Legal rules apply, including check, en passant, and promotion. Load a valid FEN to train another position.'
+    : 'Drag pieces from the tray onto the board, or drop them off the board to remove. Right-click clears a square. Castling follows the position’s rights.';
+}
+
+function switchWorkspace(nextView) {
+  if (nextView === activeView || movePending) return;
+  if (drag) finish({}, true);
+  sessions[activeView] = { fen: toFen(), history: history.slice(), sfSide, auto, both, legalRules, allowCastling, flip, plies };
+  activeView = nextView;
+  const next = sessions[nextView];
+  if (next) {
+    load(next.fen); history = next.history.slice();
+    ({ sfSide, auto, both, legalRules, allowCastling, flip, plies } = next);
+  } else {
+    load(START); history = []; plies = 0; flip = false;
+    sfSide = 'b'; auto = true; both = false; legalRules = true; allowCastling = true;
+  }
+  tool = null; crashed = false; sug = null; gameState = null; moveNotice();
+  syncWorkspace(); render(); syncTool(); schedule();
+}
+
+document.querySelectorAll('[data-view]').forEach(button => {
+  button.onclick = () => switchWorkspace(button.dataset.view);
+  button.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault(); const target = event.key === 'Home' ? 'analyzer' : event.key === 'End' ? 'training' : activeView === 'analyzer' ? 'training' : 'analyzer';
+    switchWorkspace(target); document.querySelector('[data-view="' + target + '"]').focus();
+  });
+});
+$('#legal-rules').onchange = event => {
+  legalRules = event.target.checked; tool = null; moveNotice(); syncWorkspace(); syncTool(); schedule();
+};
+$('#allow-castling').onchange = event => { allowCastling = event.target.checked; moveNotice(); schedule(); };
+
 const appWindow = window.__TAURI__.window.getCurrentWindow();
 $('#window-minimize').onclick = () => appWindow.minimize().catch(error => status(String(error)));
 $('#window-maximize').onclick = () => appWindow.toggleMaximize().catch(error => status(String(error)));
@@ -491,4 +591,4 @@ async function syncWindowIcon() {
 appWindow.onResized(() => syncWindowIcon().catch(() => {}));
 syncWindowIcon().catch(() => {});
 
-load(START); render(); boot(); schedule();
+load(START); syncWorkspace(); render(); boot(); schedule();
