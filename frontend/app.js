@@ -553,7 +553,9 @@ function syncWorkspace() {
   });
   $('#mode-description').textContent = playMode === 'queen_collector'
     ? 'Build more queens while ahead. Compare evaluated legal moves, avoid immediate draw risks, and fall back to the strongest move when needed.'
-    : 'Stockfish chooses its strongest evaluated move.';
+    : playMode === 'playful'
+      ? 'Keep a strong position while delaying mate. Prefer safe alternatives and avoid immediate draw risks; take the strongest move when needed.'
+      : 'Stockfish chooses its strongest evaluated move.';
   $('#legal-rules').checked = legalRules; $('#allow-castling').checked = allowCastling;
   pal.hidden = legalRules;
   $('#clear').disabled = legalRules; $('#erase').disabled = legalRules;

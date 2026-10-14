@@ -29,7 +29,7 @@
   <aside>
     <h1 id="workspace-heading">Analyzer</h1>
     <div class="rules-row">
-      <label class="toggle"><input id="legal-rules" type="checkbox"><span class="switch" aria-hidden="true"></span>Legal rules apply</label>
+      <label class="toggle"><input id="legal-rules" type="checkbox"><span class="switch" aria-hidden="true"></span>Legal moves only</label>
       <label class="toggle"><input id="allow-castling" type="checkbox" checked><span class="switch" aria-hidden="true"></span>Allow castling</label>
     </div>
     <p id="move-notice" class="move-notice" role="alert" hidden></p>
@@ -38,6 +38,7 @@
       <div class="seg mode-controls">
         <button class="act on" data-mode="normal" aria-pressed="true">Normal</button>
         <button class="act" data-mode="queen_collector" aria-pressed="false">Queen Collector</button>
+        <button class="act" data-mode="playful" aria-pressed="false">Playful</button>
       </div>
       <p id="mode-description" class="hint">Stockfish chooses its strongest evaluated move.</p>
       <p id="mode-explanation" class="hint" aria-live="polite"></p>

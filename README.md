@@ -126,8 +126,8 @@ No Rust or Node.js installation is required to run either download. I use those 
 
 - **Position Editing** - Drag pieces from the tray, move them around, or drop them off the board to remove them
 - **Two Workspaces** - Keep separate positions in Analyzer and Game Training, with animated green tab underlines
-- **Training Modes** - Use Normal for Stockfish's strongest move, or Queen Collector to work toward more promotions while preserving an advantage
-- **Chess Rules** - Toggle legal rules and castling; castling is validated in both workspaces, including rook movement and attacked squares
+- **Training Modes** - Use Normal for Stockfish's strongest move, Queen Collector for more promotions, or Playful to delay mate while keeping a strong position
+- **Chess Rules** - Toggle Legal moves only and Allow castling; castling is validated in both workspaces, including rook movement and attacked squares
 - **Custom Title Bar** - Chessbot icon and name with green minimize/maximize controls and a red close hover
 - **FEN Positions** - Import a position and copy the current board as FEN
 - **Move Analysis** - Show Stockfish's suggested move, principal variation, and evaluation
@@ -141,6 +141,8 @@ Analyzer starts with free editing. Game Training starts with legal rules enabled
 
 Queen Collector compares Stockfish's evaluated legal alternatives at the selected depth. While clearly ahead, it favours pawn progress and queen promotions, rejects immediate stalemate/repetition/move-count draw risks, and can delay mate to keep collecting. If a safe collecting move isn't available, it falls back to Stockfish's strongest move. This is an evaluation-guided style, not a guarantee against every future draw; comparing more moves can also take longer than Normal mode.
 
+Playful uses the same evaluated alternatives and immediate draw checks, but favours quiet moves that delay mate rather than collecting queens. It only does this with a strong evaluated advantage and falls back to the strongest move if the alternatives would put the result at risk. It also works in positions with no pawns left.
+
 > [!IMPORTANT]
 > Draw detection uses the position and move history available in the app. Loading a FEN or editing the position resets repetition history. I label threefold repetition and fifty-move draws as claimable, and stop automation for those conditions too.
 >
@@ -153,7 +155,7 @@ Queen Collector compares Stockfish's evaluated legal alternatives at the selecte
 1. **Choose a workspace** - Use Analyzer for position editing and analysis, or Game Training for a game with legal rules and automatic engine replies. Each tab keeps its own position and controls.
 2. **Edit or play** - With legal rules off, drag pieces from the tray, drag them off the board, or right-click to clear a square. With legal rules on, move the side to play. Allow castling controls castling in both tabs.
 3. **Set the position** - Select the side to move or paste a FEN into the position field.
-4. **Analyse or train** - Choose White or Black under Stockfish plays, then select a depth. In Game Training, choose Normal or Queen Collector. I use depth 12 as the default; Custom reveals the 1–48 slider.
+4. **Analyse or train** - Choose White or Black under Stockfish plays, then select a depth. In Game Training, choose Normal, Queen Collector, or Playful. I use depth 12 as the default; Custom reveals the 1–48 slider.
 5. **Automate** - Enable Auto-play moves to apply suggestions, or Both sides to watch Stockfish play itself.
 6. **Display and share** - Flip the board, select a theme, and use Copy FEN to share the current position.
 

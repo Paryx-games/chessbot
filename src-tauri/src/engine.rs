@@ -183,7 +183,7 @@ impl Engine {
                         if line.starts_with("bestmove ") && mode != PlayMode::Normal {
                             let fallback = line.split_whitespace().nth(1).unwrap_or("(none)");
                             let (selected, reason) =
-                                crate::modes::choose(fen, history, &complete, fallback);
+                                crate::modes::choose(mode, fen, history, &complete, fallback);
                             if latest.load(Ordering::SeqCst) == generation {
                                 if let Some(candidate) =
                                     complete.iter().find(|candidate| candidate.uci == selected)
@@ -227,6 +227,40 @@ impl Engine {
 mod tests {
     use super::*;
     const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    #[test]
+    fn playful_uses_evaluated_alternatives_instead_of_immediate_mate() {
+        use shakmaty::Position;
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("binaries/stockfish-x86_64-pc-windows-msvc.exe");
+        let mut engine = Engine::start(&path).unwrap();
+        let latest = AtomicU64::new(1);
+        let fen = "7k/8/5KQ1/8/8/8/8/8 w - - 0 1";
+        let mut best = String::new();
+        let mut explanation = String::new();
+        engine
+            .analyse_options(
+                SearchOptions {
+                    fen,
+                    depth: 5,
+                    mode: PlayMode::Playful,
+                    history: &[],
+                },
+                1,
+                &latest,
+                |line| {
+                    if let Some(mv) = line.strip_prefix("bestmove ") {
+                        best = mv.into();
+                    }
+                    if let Some(reason) = line.strip_prefix("modeinfo ") {
+                        explanation = reason.into();
+                    }
+                },
+            )
+            .unwrap();
+        let next = crate::rules::make_move(fen, &best, true).unwrap();
+        assert!(!crate::rules::position(&next).unwrap().is_checkmate());
+        assert!(explanation.contains("Delaying mate"));
+    }
     #[test]
     fn queen_collector_uses_real_analysis_and_normal_search_recovers() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))

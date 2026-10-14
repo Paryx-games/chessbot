@@ -7,6 +7,7 @@ pub enum PlayMode {
     #[default]
     Normal,
     QueenCollector,
+    Playful,
 }
 
 #[derive(Clone, Debug)]
@@ -83,6 +84,7 @@ fn safe_child(pos: &Chess, history: &[Chess]) -> bool {
 }
 
 pub fn choose(
+    mode: PlayMode,
     fen: &str,
     history: &[String],
     candidates: &[Candidate],
@@ -103,10 +105,12 @@ pub fn choose(
             "Using Stockfish's strongest move; no complete comparison is available.".into(),
         );
     };
-    if !has_pawns || best.score < 200 {
+    if (mode == PlayMode::QueenCollector && !has_pawns)
+        || best.score < if mode == PlayMode::Playful { 400 } else { 200 }
+    {
         return (
             fallback.into(),
-            if has_pawns {
+            if has_pawns || mode == PlayMode::Playful {
                 "Keeping the strongest move until the position has a clear advantage."
             } else {
                 "No pawns left to promote; finishing with Stockfish's strongest move."
@@ -117,7 +121,7 @@ pub fn choose(
     let minimum = if best.mate.is_some_and(|mate| mate > 0) {
         800
     } else {
-        (best.score - 100).max(200)
+        (best.score - 100).max(if mode == PlayMode::Playful { 400 } else { 200 })
     };
     let mut past = history
         .iter()
@@ -159,12 +163,25 @@ pub fn choose(
         } else {
             (best.score.min(1500) - candidate.score.min(1500)).max(0)
         };
-        let rank = pawn_bonus - loss - if child.is_checkmate() { 5000 } else { 0 };
+        let rank = if mode == PlayMode::Playful {
+            (if child.is_checkmate() { -5000 } else { 1000 })
+                + if child.is_check() { 0 } else { 20 }
+                + if mv.is_capture() { 0 } else { 10 }
+                - loss
+        } else {
+            pawn_bonus - loss - if child.is_checkmate() { 5000 } else { 0 }
+        };
         if selected
             .as_ref()
             .is_none_or(|(_, best_rank, _)| rank > *best_rank)
         {
-            let explanation = if promotion {
+            let explanation = if mode == PlayMode::Playful {
+                if child.is_checkmate() {
+                    "Taking mate because no safe playful alternative is available."
+                } else {
+                    "Delaying mate with an evaluated move that keeps a strong advantage and avoids immediate draw risks."
+                }
+            } else if promotion {
                 "Promoting another queen while preserving the evaluated advantage."
             } else if mv.role() == Role::Pawn {
                 "Advancing a pawn while retaining the advantage and checking immediate draw risks."
@@ -185,7 +202,7 @@ pub fn choose(
         .unwrap_or_else(|| {
             (
                 fallback.into(),
-                "Falling back to Stockfish's strongest move; collecting would risk the result."
+                "Falling back to Stockfish's strongest move; a style move would risk the result."
                     .into(),
             )
         })
@@ -201,9 +218,15 @@ mod tests {
     fn collector_promotes_but_does_not_trade_away_the_advantage() {
         let fen = "7k/P7/8/8/8/8/8/K2Q4 w - - 0 1";
         let lines = [candidate("d1d2", 1100), candidate("a7a8q", 1080)];
-        assert_eq!(choose(fen, &[], &lines, "d1d2").0, "a7a8q");
+        assert_eq!(
+            choose(PlayMode::QueenCollector, fen, &[], &lines, "d1d2").0,
+            "a7a8q"
+        );
         let lines = [candidate("d1d2", 1100), candidate("a7a8q", 0)];
-        assert_eq!(choose(fen, &[], &lines, "d1d2").0, "d1d2");
+        assert_eq!(
+            choose(PlayMode::QueenCollector, fen, &[], &lines, "d1d2").0,
+            "d1d2"
+        );
     }
     #[test]
     fn collector_rejects_stalemate_and_threefold_repetition() {
@@ -212,5 +235,25 @@ mod tests {
         let pos = crate::rules::position("7k/8/8/8/8/8/P7/K2Q4 b - - 0 1").unwrap();
         assert!(!safe_child(&pos, &[pos.clone(), pos.clone()]));
         assert!(Candidate::parse("info depth 8 score cp 50 lowerbound pv e2e4").is_none());
+    }
+
+    #[test]
+    fn playful_delays_mate_without_needing_pawns_and_preserves_the_advantage() {
+        let fen = "7k/8/5KQ1/8/8/8/8/8 w - - 0 1";
+        let mate = Candidate::parse("info depth 8 score mate 1 pv g6g7").unwrap();
+        let quiet = candidate("g6d3", 1000);
+        let (mv, reason) = choose(PlayMode::Playful, fen, &[], &[mate.clone(), quiet], "g6g7");
+        assert_eq!(mv, "g6d3");
+        assert!(reason.contains("Delaying mate"));
+        let unsafe_move = candidate("g6d3", 100);
+        assert_eq!(
+            choose(PlayMode::Playful, fen, &[], &[mate, unsafe_move], "g6g7").0,
+            "g6g7"
+        );
+        let low_advantage = [candidate("g6d3", 300), candidate("g6g7", 290)];
+        assert_eq!(
+            choose(PlayMode::Playful, fen, &[], &low_advantage, "g6d3").0,
+            "g6d3"
+        );
     }
 }
