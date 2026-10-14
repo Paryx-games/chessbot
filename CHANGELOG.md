@@ -17,6 +17,7 @@ I record changes here and use the versioning described in [VERSIONING.md](VERSIO
 
 ### Changed
 
+- Replaced em dashes in game-status messages with standard hyphens.
 - Renamed the app, executable, and installer to Chessbot.
 - Matched CI and release job structure with other rust checks I've made, trusted PR labels, live failure reporting, build provenance, generated release notes, and best-effort download scans.
 - Widened the sidebar and moved board guidance into a footer to avoid horizontal scrolling at the minimum window size.

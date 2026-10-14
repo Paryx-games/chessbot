@@ -54,29 +54,29 @@ pub fn inspect(fen: &str, history: &[String]) -> GameStatus {
         } else {
             "White"
         };
-        ("checkmate", format!("Checkmate — {winner} wins"), true)
+        ("checkmate", format!("Checkmate - {winner} wins"), true)
     } else if pos.is_stalemate() {
-        ("draw", "Stalemate — draw".into(), true)
+        ("draw", "Stalemate - draw".into(), true)
     } else if pos.is_insufficient_material() {
-        ("draw", "Draw — insufficient material".into(), true)
+        ("draw", "Draw - insufficient material".into(), true)
     } else if pos.halfmoves() >= 150 {
-        ("draw", "Draw — seventy-five-move rule".into(), true)
+        ("draw", "Draw - seventy-five-move rule".into(), true)
     } else if repetitions >= 5 {
-        ("draw", "Draw — fivefold repetition".into(), true)
+        ("draw", "Draw - fivefold repetition".into(), true)
     } else if pos.halfmoves() >= 100 {
         (
             "draw",
-            "Draw available — fifty-move rule (claimable)".into(),
+            "Draw available - fifty-move rule (claimable)".into(),
             true,
         )
     } else if repetitions >= 3 {
         (
             "draw",
-            "Draw available — threefold repetition (claimable)".into(),
+            "Draw available - threefold repetition (claimable)".into(),
             true,
         )
     } else if checked_square.is_some() {
-        ("check", format!("Check — {side} to move"), false)
+        ("check", format!("Check - {side} to move"), false)
     } else {
         ("playing", format!("{side} to move"), false)
     };
@@ -94,11 +94,11 @@ mod tests {
     #[test]
     fn distinguishes_mate_stalemate_and_check() {
         let mate = inspect("7k/6Q1/5K2/8/8/8/8/8 b - - 0 1", &[]);
-        assert_eq!(mate.message, "Checkmate — White wins");
+        assert_eq!(mate.message, "Checkmate - White wins");
         assert_eq!(mate.checked_square, Some(7));
         assert!(mate.terminal);
         let stale = inspect("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1", &[]);
-        assert_eq!(stale.message, "Stalemate — draw");
+        assert_eq!(stale.message, "Stalemate - draw");
         assert_eq!(stale.checked_square, None);
         let check = inspect("7k/8/8/8/8/8/8/K6R b - - 0 1", &[]);
         assert_eq!(check.kind, "check");
@@ -108,7 +108,7 @@ mod tests {
     fn draw_rules_and_mate_precedence() {
         assert_eq!(
             inspect("7k/8/8/8/8/8/8/K7 w - - 0 1", &[]).message,
-            "Draw — insufficient material"
+            "Draw - insufficient material"
         );
         let fen = "7k/8/8/8/8/8/8/KR6 w - - 100 51";
         assert!(inspect(fen, &[]).message.contains("fifty-move"));

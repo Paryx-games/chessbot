@@ -71,7 +71,7 @@
 
 ## Showcase image
 
-<img src="assets/branding/social-preview.png" alt="Chessbot — Chess move analysis">
+<img src="assets/branding/social-preview.png" alt="Chessbot - Chess move analysis">
 
 ## About The Project
 
