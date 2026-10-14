@@ -2,21 +2,6 @@
 
 I record changes here and use the versioning described in [VERSIONING.md](VERSIONING.md).
 
-## Unreleased
-
-### Added
-
-- settings.ini for display preferences and save choices, plus saved.ini for independent workspace state. Checkboxes select which controls to remember or disable workspace saving entirely.
-- Settings tab for board colour, interface appearance, reduced motion, coordinates, and move arrows, saved on this device.
-- Estimated 1320–3190 Elo slider in both workspaces, with a full-strength option. Limited Elo takes priority over playing style.
-
-### Changed
-
-- Matched CI and release job structure with separate Rust checks, trusted PR labels, live failure reporting, build provenance, generated release notes, and best-effort download scans.
-- Widened the sidebar and moved board guidance into a footer to avoid horizontal scrolling at the minimum window size.
-- Moved playing styles to Analyzer, disabled Both sides in Game Training, and moved the side-selection prompt into the position-status box.
-- Tab underlines grow from the centre on hover and expand fully when selected, respecting reduced motion.
-
 ## 1.1.0
 
 ### Added
@@ -25,10 +10,17 @@ I record changes here and use the versioning described in [VERSIONING.md](VERSIO
 - Analyzer and Game Training workspaces with independent board positions and animated green tab underlines.
 - Legal-rules and castling controls, with Rust validation for manual moves, castling, en passant, and promotion.
 - Normal, Queen Collector, and Playful training modes. Queen Collector favours promotions, while Playful delays mate with strong evaluated alternatives; both check immediate draw risks and fall back to the strongest move when needed.
+- settings.ini for display preferences and save choices, plus saved.ini for independent workspace state. Checkboxes select which controls to remember or disable workspace saving entirely.
+- Settings tab for board colour, interface appearance, reduced motion, coordinates, and move arrows, saved on this device.
+- Estimated 1320–3190 Elo slider in both workspaces, with a full-strength option. Limited Elo takes priority over playing style.
 
 ### Changed
 
 - Renamed the app, executable, and installer to Chessbot.
+- Matched CI and release job structure with other rust checks I've made, trusted PR labels, live failure reporting, build provenance, generated release notes, and best-effort download scans.
+- Widened the sidebar and moved board guidance into a footer to avoid horizontal scrolling at the minimum window size.
+- Moved playing styles to Analyzer, disabled Both sides in Game Training, and moved the side-selection prompt into the position-status box.
+- Tab underlines grow from the centre on hover and expand fully when selected, respecting reduced motion.
 
 ## 1.0.0
 
