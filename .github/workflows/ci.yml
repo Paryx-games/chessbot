@@ -1,0 +1,183 @@
+name: CI
+run-name: CI for ${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }}
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  changes:
+    name: Select checks from changed files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      frontend: ${{ steps.select.outputs.frontend }}
+      frontendBuild: ${{ steps.select.outputs.frontendBuild }}
+      rust: ${{ steps.select.outputs.rust }}
+      build: ${{ steps.select.outputs.build }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        id: select
+        with:
+          script: await require('./.github/scripts/ci-plan.cjs').select({ github, context, core });
+  frontend-build:
+    name: Frontend assets and version check
+    needs: changes
+    if: needs.changes.outputs.frontendBuild == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - run: node scripts/check-version.cjs
+  frontend:
+    name: Frontend JavaScript syntax
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - run: node --check frontend/app.js
+  fmt:
+    name: Rust formatting
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup component add rustfmt
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+  rust:
+    name: Rust checks
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [clippy, test]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup component add clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri -> target
+          shared-key: chessbot-windows
+          save-if: false
+      - run: ./scripts/fetch-stockfish.ps1
+      - name: Clippy
+        if: matrix.check == 'clippy'
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+      - name: Test
+        if: matrix.check == 'test'
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features --locked
+  build:
+    name: Windows application and installer
+    needs: [changes, frontend-build, frontend]
+    if: >-
+      always() && !cancelled() && needs.changes.outputs.build == 'true' &&
+      needs.frontend-build.result == 'success' &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri -> target
+          shared-key: chessbot-windows
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: ./scripts/fetch-stockfish.ps1
+      - run: cargo install tauri-cli --version 2.11.2 --locked
+      - name: Test release packaging
+        run: node --test .github/scripts/package-release.test.cjs
+      - run: cargo tauri build --ci --bundles nsis -- --locked
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: chessbot-windows-build
+          path: src-tauri/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+          retention-days: 7
+  workflow-check:
+    name: Workflow syntax and automation tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - run: node --test .github/scripts/*.test.cjs
+      - run: node scripts/check-version.cjs
+      - name: Install and run Actionlint
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz --output "$RUNNER_TEMP/actionlint.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint"
+  zizmor:
+    name: Workflow security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          version: 1.30.1
+          inputs: .github
+          online-audits: true
+          advanced-security: false
+          token: ${{ github.token }}
+  passed:
+    name: CI passed
+    needs: [changes, frontend-build, frontend, fmt, rust, build, workflow-check, zizmor]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: node .github/scripts/ci-gate.cjs
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}

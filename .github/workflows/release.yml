@@ -1,0 +1,154 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build (for example v0.1.0)
+        required: true
+        type: string
+      publish:
+        description: Publish after validation (otherwise leave a draft)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+jobs:
+  prepare:
+    name: Validate release and exact-commit CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      make_latest: ${{ steps.meta.outputs.make_latest }}
+    steps:
+      - name: Validate tag syntax before checkout
+        shell: bash
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]] || { echo 'Invalid version tag'; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Validate versions, changelog, and trusted CI
+        id: meta
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: await require('./.github/scripts/release.cjs').prepare({ github, context, core });
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-notes
+          path: release-notes.md
+          retention-days: 1
+          if-no-files-found: error
+  build:
+    name: Build validated commit
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2 # zizmor: ignore[cache-poisoning] consumes main CI cache without saving
+        with:
+          workspaces: src-tauri -> target
+          shared-key: chessbot-windows
+          save-if: false
+      - run: ./scripts/fetch-stockfish.ps1
+      - run: cargo install tauri-cli --version 2.11.2 --locked
+      - name: Test release packaging
+        run: node --test .github/scripts/package-release.test.cjs
+      - run: cargo tauri build --ci --bundles nsis -- --locked
+      - name: Package installer, portable app, sources, and checksums
+        run: ./scripts/package-release.ps1 -Tag $env:RELEASE_TAG
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-packages
+          path: |
+            .cache/release/*.exe
+            .cache/release/*.zip
+            .cache/release/*.txt
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+  publish:
+    name: Assemble and publish release
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+      RELEASE_PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+      RELEASE_LATEST: ${{ needs.prepare.outputs.make_latest }}
+      PUBLISH_RELEASE: ${{ github.event_name == 'push' || inputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-packages
+          path: release
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-notes
+          path: notes
+      - name: Verify artifact checksums and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd release && sha256sum --check SHA256SUMS.txt)
+          artifact_sha="$(tr -d '\r\n\357\273\277' < release/COMMIT.txt)"
+          [[ "$artifact_sha" == "$RELEASE_SHA" ]] || { echo 'Artifact commit mismatch'; exit 1; }
+      - name: Assemble release notes
+        run: node scripts/write-release-notes.cjs
+      - name: Confirm tag still points at validated commit
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: await require('./.github/scripts/release.cjs').confirmTag({ github, context });
+      - name: Create draft and upload verified assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          args=(release/*.exe release/*.zip release/*.txt --repo "$GITHUB_REPOSITORY" --verify-tag --target "$RELEASE_SHA" --title "Board Editor $RELEASE_TAG" --notes-file final-release-notes.md --draft)
+          if [[ "$RELEASE_PRERELEASE" == 'true' ]]; then args+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" "${args[@]}"
+      - name: Recheck tag immediately before publication
+        if: env.PUBLISH_RELEASE == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: await require('./.github/scripts/release.cjs').confirmTag({ github, context });
+      - name: Publish release
+        if: env.PUBLISH_RELEASE == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest="$RELEASE_LATEST"

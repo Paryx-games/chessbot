@@ -1,0 +1,161 @@
+# CodeRabbit review configuration
+# Keep .agents/instructions.md and PR_CONVENTIONS.md as the sources of truth; use this file to
+# help automated reviews apply those project rules consistently.
+
+language: "en-US"
+early_access: false
+enable_free_tier: true
+
+tone_instructions: >-
+  Be concise, technical, direct, and evidence-led. Prefer a few high-confidence,
+  actionable findings over speculative or stylistic feedback.
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  high_level_summary_instructions: >-
+    Summarise the purpose and externally meaningful behavior of the pull request.
+    Mention important architectural, security, compatibility, or regression risks
+    when present. Do not narrate the diff file by file.
+  auto_title_instructions: >-
+    Follow PR_CONVENTIONS.md and CONVENTIONAL_COMMITS.md. Use a permitted type,
+    a specific scope when one fits, and a concise imperative description.
+    Avoid emoji and trailing punctuation.
+  review_status: false
+  review_details: false
+  collapse_walkthrough: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: false
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  poem: false
+  in_progress_fortune: false
+  enable_prompt_for_ai_agents: false
+  abort_on_close: true
+  disable_cache: false
+
+  path_filters:
+    - "!**/target/**"
+    - "!src-tauri/gen/**"
+    - "!src-tauri/binaries/**"
+    - "!**/.cache/**"
+    - "!references/**"
+    - "!**/*.{png,ico,exe,zip}"
+
+  path_instructions:
+    - path: "**"
+      instructions: |
+        Follow .agents/instructions.md for repository guidance.
+        Review changes in the context of the surrounding code, callers, tests, and
+        documented invariants. Report only realistic issues introduced or materially
+        worsened by the change. Prioritise chess-rule correctness, FEN handling,
+        engine cancellation, process lifecycle, error handling, packaging, and meaningful tests.
+        Do not report hypothetical issues without a plausible failure path, repeat compiler
+        or linter diagnostics without deeper impact, enforce personal style preferences,
+        or propose broad refactors for small issues. Prefer the smallest correct fix.
+        Include a reproduction position or sequence of app actions when it helps explain a finding.
+
+    - path: "**/*.{yaml,yml,toml,json,jsonc}"
+      instructions: |
+        Focus on semantic configuration changes, invalid assumptions, insecure defaults,
+        accidental exposure, environment mismatches, and behavior that contradicts the code.
+        Ignore formatting and key ordering.
+
+    - path: "**/*.{md,mdx,rst}"
+      instructions: |
+        Check technical accuracy. Verify commands, paths, configuration names, API details,
+        and behavioral claims against implementation when possible. Avoid prose-style
+        nitpicks unless the meaning is unclear or project policy requires it.
+
+    - path: "src-tauri/src/**"
+      instructions: |
+        Check FEN and depth validation, UCI command boundaries, generation-based cancellation,
+        stale output, engine startup and cleanup, checkmate, stalemate, repetition, material,
+        and move-count draws. Preserve the distinction between free board editing and legal
+        positions accepted for analysis. Include concrete FENs when reporting chess-rule bugs.
+
+    - path: "frontend/**"
+      instructions: |
+        Check board indexing and orientation, drag/drop and promotion behavior, FEN counters,
+        the evaluation bar, checked-king highlights, depth controls, keyboard focus, and
+        auto-play cancellation. Preserve the established plain HTML/CSS/JavaScript UI.
+
+    - path: "scripts/**"
+      instructions: |
+        Check pinned Stockfish downloads and checksum verification, version consistency,
+        release filenames, portable sidecar placement, and included license/source files.
+
+  auto_review:
+    enabled: false
+
+  tools:
+    gitleaks:
+      enabled: true
+    semgrep:
+      enabled: true
+    actionlint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    osvScanner:
+      enabled: true
+    github-checks:
+      enabled: true
+    markdownlint:
+      enabled: false
+
+  pre_merge_checks:
+    title:
+      mode: "warning"
+    description:
+      mode: "warning"
+    custom_checks:
+      - name: "pull request conventions"
+        mode: "warning"
+        instructions: |
+          Check title and description against PR_CONVENTIONS.md and the repository PR
+          template. Validate required sections and checklist items against recorded evidence.
+          Do not require optional sections or empty N/A sections.
+      - name: "repository policy compliance"
+        mode: "warning"
+        instructions: |
+          Check changed code against .agents/instructions.md. Warn only
+          about concrete policy violations; do not turn optional guidance into requirements.
+      - name: "behavior change coverage"
+        mode: "warning"
+        instructions: |
+          Identify whether production behavior changed. Warn when meaningful new or changed
+          behavior lacks useful regression coverage and no reasonable explanation is given.
+
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: false
+
+chat:
+  auto_reply: true
+  art: false
+
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - ".agents/instructions.md"
+      - "PR_CONVENTIONS.md"
+      - "CONTRIBUTING.md"
+      - "VERSIONING.md"
+      - "THIRD_PARTY_NOTICES.md"

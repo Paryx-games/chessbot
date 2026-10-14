@@ -1,0 +1,31 @@
+# Feature request
+
+name: Feature request
+description: Suggest an improvement or new capability
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell me which chess-editing or move-analysis workflow you'd like to improve. An example position or mockup will help me understand it.
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggestion
+      description: What should change in the board editor, Stockfish analysis, or desktop app, and how would it help?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered (optional)
+      description: Describe workarounds or other approaches you considered.
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples (optional)
+      description: Add mockups, links, or examples that clarify the request.

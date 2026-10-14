@@ -1,0 +1,19 @@
+[package]
+name = "chess-stockfish"
+version = "0.1.0"
+edition = "2021"
+description = "Native Stockfish board editor"
+license = "GPL-3.0-or-later"
+publish = false
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+shakmaty = "0.30"
+serde = { version = "1", features = ["derive"] }
+

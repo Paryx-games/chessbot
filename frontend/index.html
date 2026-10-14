@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Board Editor</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <div class="board-area">
+    <div class="ev" aria-label="Position evaluation" title="Position evaluation"><i id="evf"></i></div>
+    <div class="bw"><div id="board"></div><svg id="arrows" viewBox="0 0 8 8"></svg></div>
+  </div>
+  <aside>
+    <h1>Board editor</h1>
+    <div id="game-status" class="game-status" role="status" aria-live="polite" aria-atomic="true" data-kind="playing">White to move</div>
+    <div class="card">
+      <div class="lbl">Stockfish plays</div>
+      <div class="seg"><button class="act" data-side="off">Off</button><button class="act" data-side="w">White</button><button class="act" data-side="b">Black</button></div>
+      <div class="lbl">Side to move</div>
+      <div class="seg"><button class="act" data-turn="w">White</button><button class="act" data-turn="b">Black</button></div>
+      <div class="lbl">Search depth</div>
+      <div class="depth-picker" id="depth-picker">
+        <button class="act depth-trigger" id="depth" type="button" aria-label="Search depth" aria-haspopup="listbox" aria-expanded="false" aria-controls="depth-options">
+          <span id="depth-label">12 · Balanced</span><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="depth-options" class="depth-options" role="listbox" aria-label="Search depth presets" hidden>
+          <button type="button" role="option" tabindex="-1" aria-selected="false" data-depth="6"><span>6</span><span>Fast</span></button>
+          <button type="button" role="option" tabindex="-1" aria-selected="false" data-depth="8"><span>8</span><span>Quick</span></button>
+          <button type="button" role="option" tabindex="-1" aria-selected="true" data-depth="12"><span>12</span><span>Balanced</span></button>
+          <button type="button" role="option" tabindex="-1" aria-selected="false" data-depth="16"><span>16</span><span>Deep</span></button>
+          <button type="button" role="option" tabindex="-1" aria-selected="false" data-depth="24"><span>24</span><span>Very deep</span></button>
+          <button type="button" role="option" tabindex="-1" aria-selected="false" data-depth="custom"><span>Custom</span><span>Choose 1–48</span></button>
+        </div>
+      </div>
+      <div id="custom-depth" class="custom-depth" hidden>
+        <div class="depth-slider-label"><label for="depth-slider">Custom depth</label><output id="depth-value" for="depth-slider">24</output></div>
+        <input id="depth-slider" type="range" min="1" max="48" step="1" value="24" aria-describedby="depth-warning">
+        <div class="depth-range" aria-hidden="true"><span>1</span><span>48</span></div>
+      </div>
+      <p id="depth-warning" class="depth-warning" role="status" hidden>Depths above 24 can take a long time for a single move.</p>
+      <div class="lbl">Automation</div>
+      <div class="seg"><button class="act" data-flag="auto">Auto-play moves</button><button class="act" data-flag="both">Both sides</button></div>
+      <p id="status"></p>
+      <p id="line"></p>
+    </div>
+    <div id="pal"></div>
+    <div class="bar">
+      <button class="act" id="start">Start position</button>
+      <button class="act" id="clear">Clear</button>
+      <button class="act" id="flip">Flip</button>
+      <button class="act" id="erase">Eraser</button>
+      <select id="theme" aria-label="Board theme">
+        <option value="green">Green</option><option value="brown">Brown</option>
+        <option value="blue">Blue</option><option value="purple">Purple</option>
+      </select>
+    </div>
+    <div class="row">
+      <input id="fen" spellcheck="false" aria-label="FEN">
+      <button class="act go" id="copy">Copy FEN</button>
+    </div>
+    <p class="hint">Drag pieces from the tray onto the board, or drop them off the board to remove. Moving a piece on the board passes the turn, and Stockfish only suggests once it is its side's turn. Right-click clears a square.</p>
+  </aside>
+</main>
+<script src="app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+name: CI result reporter
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] uses default-branch code and API metadata only
+    workflows: [CI]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+concurrency:
+  group: chess-ci-report-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+jobs:
+  summarize:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read trusted Board Editor reporting code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Update the PR check summary
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: await require('./.github/scripts/ci-report.cjs').report({ github, context, core });

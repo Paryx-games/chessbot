@@ -1,0 +1,27 @@
+* text=auto
+
+# Add explicit text formats and line endings used by this project.
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+
+# Add binary formats used by this project.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.ico binary
+*.exe binary
+*.zip binary
+*.rs text eol=lf
+*.toml text eol=lf
+*.lock text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+
+
+

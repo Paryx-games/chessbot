@@ -1,0 +1,67 @@
+# Bug report
+name: Bug report
+
+description: Report a reproducible problem
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please give me the chess position and app settings I need to reproduce the problem. For a security vulnerability in the app or engine integration, follow SECURITY.md.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened, what did you expect, and what error did you see?
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Project version
+      description: Tell me the release version or commit and your Windows version.
+    validations:
+      required: true
+
+  - type: input
+    id: position
+    attributes:
+      label: Position (FEN)
+      description: For board, engine, or game-status problems, give me the FEN and the moves leading to it.
+
+  - type: input
+    id: engine-settings
+    attributes:
+      label: Engine settings
+      description: Include search depth, chosen side, and whether Auto-play or Both sides was enabled.
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the application
+        2. Perform an action
+        3. Observe the result
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Frequency
+      options:
+        - Every time
+        - Sometimes
+        - Happened once
+        - Not sure
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Attachments (optional)
+      description: Attach board screenshots, Stockfish output, or build logs that demonstrate the problem.
+
