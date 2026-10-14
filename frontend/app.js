@@ -100,7 +100,7 @@ function begin(e, ch, from) {
   if (e.button > 0) return;
   e.preventDefault();
   if (movePending) return;
-  if (legalRules && (from == null || (ch === ch.toUpperCase()) !== (turn === 'w'))) return moveNotice('Move a piece belonging to the side to move.');
+  if (legalRules && (from == null || (ch === ch.toUpperCase()) !== (turn === 'w'))) { playCue('illegal'); return moveNotice('Move a piece belonging to the side to move.'); }
   drag = { ch, from, x: e.clientX, y: e.clientY, moved: false };
   ghost = document.createElement('div');
   ghost.className = 'ghost';
@@ -230,19 +230,22 @@ let ready = false, crashed = false, token = 0, timer = 0, depth = 12;
 let depthPreset = '12', customDepth = 24;
 let cancellation = Promise.resolve();
 
-const moveSounds = Object.fromEntries(['move', 'capture', 'castle', 'check'].map(name => {
+const moveSounds = Object.fromEntries(SOUND_NAMES.map(name => {
   const audio = new Audio(`sounds/${name}.mp3`); audio.preload = 'auto';
   return [name, audio];
 }));
 let currentSound = null, pendingMoveSound = null;
-function playMoveSound(result, position) {
-  if (!pendingMoveSound || pendingMoveSound.fen !== position) return;
-  const type = result.checked_square != null ? 'check' : pendingMoveSound.type;
-  pendingMoveSound = null;
-  if (!preferences.soundEffects) return;
+function playCue(type) {
+  if (!preferences.soundEffects || !moveSounds[type]) return;
   currentSound?.pause();
   currentSound = moveSounds[type]; currentSound.currentTime = 0;
   currentSound.play().catch(() => {});
+}
+function playMoveSound(result, position) {
+  if (!pendingMoveSound || pendingMoveSound.fen !== position) return;
+  const type = completedMoveSound(pendingMoveSound.type, result);
+  pendingMoveSound = null;
+  playCue(type);
 }
 
 function changed(resetClock = false) {
@@ -504,7 +507,7 @@ function show(best, info, live) {
 async function playSug(my, mv) {
   if (my !== token || !sug || settingsOpen) return;
   if (plies >= 200) { sug = null; drawArrow(); return status('Stopped after 200 auto moves - change the position to continue'); }
-  const position = toFen(), sound = moveSoundType(grid, idx(mv.slice(0, 2)), idx(mv.slice(2, 4)), ep);
+  const position = toFen(), sound = moveSoundType(grid, idx(mv.slice(0, 2)), idx(mv.slice(2, 4)), ep, true);
   try {
     const next = await invoke('make_move', { fen: position, uci: mv, castling: allowCastling });
     if (my !== token || position !== toFen()) return;
@@ -615,7 +618,7 @@ async function manualMove(from, to) {
     if (revision !== token || position !== toFen()) return;
     history.push(position); load(next); lastMove = [from, to]; pendingMoveSound = { fen: toFen(), type: sound }; render(); syncTool(); schedule();
   } catch (error) {
-    if (revision === token) { moveNotice(String(error)); render(); schedule(); }
+    if (revision === token) { playCue('illegal'); moveNotice(String(error)); render(); schedule(); }
   } finally { movePending = false; }
 }
 

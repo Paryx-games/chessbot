@@ -77,6 +77,8 @@
 
 I built Chessbot as a Windows chess position editor and training app using Rust, Tauri, and native Stockfish. Analyse positions in Analyzer, or play a game in Game Training.
 
+All files under `sounds/` are copied into the app before native development and builds, including nested assets. The premove cue is bundled for future premove support.
+
 The interface lives in `frontend/`, with the Rust backend and desktop configuration in `src-tauri/`. I use plain HTML, CSS, and JavaScript for the board and controls, and keep engine execution and game-status checks in Rust.
 
 **[Read the usage section](#usage)** for the board controls, analysis settings, and automated play.
@@ -136,7 +138,7 @@ No Rust or Node.js installation is required to run either download. I use those 
 - **Automatic Moves** - Let Stockfish apply its suggestions for one side or play both sides
 - **Last Move** - Yellow squares mark where the last piece moved from and to, including engine moves
 - **Game Status** - Show check, checkmate, stalemate, and supported draw conditions, with a red square around a checked king
-- **Move Sounds** - Distinct cues for moves, captures, castling, and check, with a saved sound checkbox
+- **Move Sounds** - Distinct cues for self/opponent moves, captures, castling, promotion, checking moves, checkmate, and illegal moves, with a saved sound checkbox
 - **Board Appearance** - Flip the board and choose from four colour themes
 - **Remembered Controls** - Save display preferences in `settings.ini` and selected workspace controls in `saved.ini`; checkboxes in Settings choose what gets remembered
 

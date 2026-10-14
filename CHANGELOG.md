@@ -19,6 +19,7 @@ I record changes here and use the versioning described in [VERSIONING.md](VERSIO
 
 ### Changed
 
+- Updated the complete sound pack from sounds/, including self/opponent move, checking-move, promotion, and illegal-move cues. Every source asset is synchronized into native builds, including the premove cue for future support.
 - Removed playing modes and their saved values; full strength and the Elo slider remain available in both workspaces.
 - Replaced em dashes in game-status messages with standard hyphens.
 - Renamed the app, executable, and installer to Chessbot.
