@@ -3,7 +3,7 @@ function validateTag(tag, version) {
     throw new Error('Expected an existing vX.Y.Z or vX.Y.Z-prerelease tag');
   }
   if (tag !== `v${version}`) throw new Error('Release tag does not match application version');
-  const prerelease = version.includes('-') && !/-rc\.\d+$/.test(version);
+  const prerelease = tag.includes('-');
   return { prerelease, makeLatest: !prerelease };
 }
 
@@ -30,6 +30,15 @@ async function confirmTag({ github, context }) {
     object = tag.object;
   }
   if (object.type !== 'commit' || object.sha !== process.env.RELEASE_SHA) throw new Error('Release tag moved or no longer points to the validated commit');
+}
+
+if (require.main === module) {
+  const fs = require('node:fs');
+  const tag = process.env.RELEASE_TAG;
+  validateTag(tag, tag?.slice(1));
+  const { checkVersion } = require('../../scripts/check-version.cjs');
+  validateTag(tag, checkVersion());
+  fs.writeFileSync('release-notes.md', changelogNotes(fs.readFileSync('CHANGELOG.md', 'utf8'), tag) + '\n');
 }
 
 module.exports = { validateTag, changelogNotes, confirmTag };
